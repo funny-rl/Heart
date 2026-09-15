@@ -41,6 +41,7 @@ separately version game semantics.
 
 ### Fixed
 
+- Guarantee an exact float32 zero sum for terminal relative rewards.
 - Fail-closed handling for non-scalar actions at the `simplest-v0` boundary.
 - Preservation of deal-completion diagnostics across classic opponent autoplay.
 - CI development dependencies, memory-safe test sharding, and installed-wheel

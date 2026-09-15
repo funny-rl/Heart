@@ -154,8 +154,10 @@ def test_first_deal_reward_and_boundary_state_are_consistent():
     np.testing.assert_array_equal(np.asarray(state.match_scores), deal_scores)
     np.testing.assert_array_equal(np.asarray(state.last_deal_scores), deal_scores)
     np.testing.assert_allclose(np.asarray(rewards), expected_rewards, rtol=1e-6)
-    np.testing.assert_allclose(np.asarray(state.last_deal_rewards), expected_rewards)
-    assert np.isclose(float(np.asarray(rewards).sum()), 0.0)
+    np.testing.assert_array_equal(
+        np.asarray(state.last_deal_rewards), np.asarray(rewards)
+    )
+    assert float(rewards.sum()) == 0.0
     assert int(state.game.num_cards_played) == 0
     np.testing.assert_array_equal(np.asarray(state.game.hands).sum(axis=1), [13] * 4)
 

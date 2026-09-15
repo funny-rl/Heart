@@ -14,7 +14,7 @@ from jax import Array
 
 from heart.cards import NUM_CARDS, NUM_PLAYERS, TWO_OF_CLUBS
 from heart.config import SingleDealRules
-from heart.rules import legal_action_mask, observe
+from heart.rules import legal_action_mask, observe, relative_rewards
 from heart.rules import reset as reset_deal
 from heart.rules import step as step_deal
 from heart.types import Observation, State
@@ -133,9 +133,7 @@ def _empty_classic_info(
 
 
 def _relative_rewards(scores: Array) -> Array:
-    float_scores = scores.astype(jnp.float32)
-    total = jnp.sum(float_scores)
-    return ((total - float_scores) / (NUM_PLAYERS - 1) - float_scores) / 26.0
+    return relative_rewards(scores, normalizer=26.0)
 
 
 def _pass_direction(deal_index: Array) -> Array:

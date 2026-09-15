@@ -157,10 +157,19 @@ def settle_deal(
     )
     scores = jnp.where(shot_moon, moon_scores, penalties)
     winner_mask = scores == jnp.min(scores)
-    total = jnp.sum(scores, dtype=jnp.float32)
-    float_scores = scores.astype(jnp.float32)
-    rewards = (total - float_scores) / (NUM_PLAYERS - 1) - float_scores
+    rewards = relative_rewards(scores)
     return scores, moon_shooter, winner_mask, rewards
+
+
+def relative_rewards(scores: Array, normalizer: float = 1.0) -> Array:
+    """Return opponent-relative rewards with an exactly zero float32 sum."""
+
+    float_scores = scores.astype(jnp.float32)
+    total = jnp.sum(float_scores, dtype=jnp.float32)
+    rewards = ((total - float_scores) / (NUM_PLAYERS - 1) - float_scores) / normalizer
+    # Division by three can leave a small float32 residual. Reconstructing one
+    # component keeps the public zero-sum contract exact under JAX reductions.
+    return rewards.at[-1].set(-jnp.sum(rewards[:-1], dtype=jnp.float32))
 
 
 def _apply_legal_action(
