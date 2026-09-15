@@ -76,6 +76,19 @@ jobs:
               states.append(state)
           assert len(states) == 53
           assert int(state.penalties.sum()) == 18
+
+          single_env = heart.make_single_agent(opponents="easy")
+          single_state, single_observation = single_env.reset(jax.random.key(1))
+          for _ in range(13):
+              slot = jnp.argmax(single_observation.action_mask)
+              single_state, single_observation, _, single_done, single_info = (
+                  single_env.step(single_state, slot)
+              )
+              assert not bool(single_info.invalid_action)
+          assert bool(single_done)
+          assert int(single_state.decisions) == 13
+          assert int(single_state.game.num_cards_played) == 52
+
           with tempfile.TemporaryDirectory() as directory:
               root = Path(directory)
               assert heart.save_html(state, root / "snapshot.html").is_file()

@@ -32,6 +32,32 @@ Actions are scalar integer card IDs in `[0, 52)`. Suits occupy contiguous
 Thus 2♣ is action `0` and Q♠ is action `36`. The action mask has shape `(52,)`
 and boolean dtype.
 
+## Single-learner adapter
+
+For training one policy against three built-in opponents, use:
+
+```python
+env = heart.make_single_agent(
+    controlled_player=0,
+    opponents=("easy", "medium", "hard"),
+)
+state, observation = env.reset(key)
+state, observation, reward, terminated, info = env.step(state, slot)
+```
+
+This adapter has a fixed 13-action interface. Slot `i` always refers to the
+same card from the controlled player's initial sorted hand; played and currently
+illegal slots are masked. It autoplays the other three seats until the learner's
+next turn, so a complete external episode always has exactly 13 decisions while
+the underlying authoritative game still applies 52 card transitions.
+
+`observation.game` is the ordinary private `Observation`;
+`observation.hand_cards` maps the 13 stable slots to global card IDs; and
+`observation.action_mask` is the `(13,)` learner mask. The returned reward is
+the controlled player's scalar terminal reward. A single opponent difficulty is
+broadcast to all seats, or three names may be assigned to non-controlled player
+IDs in ascending order.
+
 ## State
 
 `State` is the omniscient fixed-shape environment PyTree.

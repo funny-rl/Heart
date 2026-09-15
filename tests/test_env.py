@@ -274,6 +274,8 @@ def test_off_suit_high_card_cannot_win_and_points_go_to_trick_winner():
     assert bool(info.trick_completed)
     assert int(info.trick_winner) == 2
     assert int(info.points_won) == 1
+    assert int(next_state.leader) == 2
+    assert int(next_state.active_player) == 2
     np.testing.assert_array_equal(np.asarray(next_state.penalties), [0, 0, 1, 0])
 
 

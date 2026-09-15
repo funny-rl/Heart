@@ -19,11 +19,19 @@ from heart.html_render import (
     save_replay_html,
 )
 from heart.render import render_ansi
+from heart.single_agent import (
+    HAND_SIZE,
+    SingleAgentEnv,
+    SingleAgentObservation,
+    SingleAgentState,
+    make_single_agent,
+)
 from heart.types import Info, Observation, State
 
 __all__ = [
     "AVAILABLE_MODES",
     "CARD_NAMES",
+    "HAND_SIZE",
     "NUM_CARDS",
     "NUM_PLAYERS",
     "QUEEN_OF_SPADES",
@@ -33,11 +41,15 @@ __all__ = [
     "Info",
     "Observation",
     "RulePolicy",
+    "SingleAgentEnv",
+    "SingleAgentObservation",
+    "SingleAgentState",
     "State",
     "card_id",
     "card_name",
     "make",
     "make_rule_policy",
+    "make_single_agent",
     "render_ansi",
     "render_gif_frame",
     "render_html",

@@ -6,6 +6,7 @@ import jax
 import pytest
 
 from benchmarks.random_rollout import _positive_int, build_rollout
+from benchmarks.single_agent_rollout import build_rollout as build_single_rollout
 
 
 def test_benchmark_rejects_non_positive_sizes():
@@ -38,3 +39,10 @@ def test_benchmark_rejects_unknown_workload_and_policy():
         build_rollout(1, policy="expert")
     with pytest.raises(ValueError, match="unknown step mode"):
         build_rollout(1, step_mode="unchecked-ish")
+
+
+def test_single_agent_benchmark_returns_scalar_checksum():
+    result = build_single_rollout(2, "easy")(jax.random.key(3))
+    jax.block_until_ready(result)
+    assert result.shape == ()
+    assert int(result) > 0

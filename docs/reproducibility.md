@@ -44,6 +44,8 @@ python benchmarks/random_rollout.py --batch-size 4096 --runs 10 \
   --workload engine-only --step-mode trusted
 python benchmarks/random_rollout.py --batch-size 4096 --runs 10 \
   --workload policy-inclusive --policy hard --step-mode safe
+python benchmarks/single_agent_rollout.py --batch-size 4096 --runs 10 \
+  --opponents medium
 ```
 
 `engine-only` uses deterministic first-legal actions and excludes policy PRNG.
@@ -69,3 +71,7 @@ card actions/s:
 Do not compare numbers across different rule graphs, hardware, precision,
 batch sizes, or warm-up treatment without saying so. A passing correctness
 suite does not establish strategic realism or policy quality.
+
+The single-agent harness reports complete deals, 13 learner decisions per deal,
+and all 52 underlying card plays separately. This makes its results comparable
+without pretending that one learner-facing step is one core transition.

@@ -11,6 +11,8 @@ separately version game semantics.
 - JAX-native four-player `simplest-v0` environment with a fixed 52-action deal.
 - Follow-suit, 2♣ opening, first-trick point, and hearts-broken action masks.
 - Five-point Q♠, terminal zero-sum rewards, and solo-win moon-shot scoring.
+- A fixed 13-action, 13-decision single-learner adapter against configurable
+  easy, medium, and hard rule opponents.
 - Batched `jit`/`vmap` rollout support and a throughput harness.
 - Easy, medium, and hard JIT-compatible rule-policy baselines.
 - Full-observability ANSI and HTML snapshots with live penalties, final scores,

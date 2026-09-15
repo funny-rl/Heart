@@ -126,6 +126,40 @@ An action is an integer card ID in `[0, 52)`. Floats, booleans, out-of-range
 IDs, masked cards, and post-terminal actions are invalid: they leave state
 unchanged, return zero rewards, and set `info.invalid_action=True`.
 
+## Train one player in 13 decisions
+
+Use the single-learner adapter when one learned policy should face rule-based
+opponents:
+
+```python
+env = heart.make_single_agent(
+    controlled_player=0,
+    opponents=("easy", "medium", "hard"),
+)
+state, observation = env.reset(jax.random.key(0))
+
+for _ in range(13):
+    slot = jnp.argmax(observation.action_mask)  # shape: (13,)
+    state, observation, reward, terminated, info = env.step(state, slot)
+```
+
+The 13 actions are stable slots for the player's initially dealt cards. The
+adapter masks played or illegal slots and automatically runs the other three
+players until the learner acts again. The underlying rules engine still applies
+all 52 card plays, while the learner sees exactly 13 decisions and one scalar
+terminal reward.
+
+Use the core `heart.make()` environment for four-policy MARL or self-play; it
+keeps global 52-card actions so every policy and replay shares one unambiguous
+card encoding.
+
+Measure thousands of simultaneous learner-versus-rules games with:
+
+```bash
+python benchmarks/single_agent_rollout.py --batch-size 4096 --runs 10 \
+  --opponents medium
+```
+
 ## Batched rollouts
 
 HEART does not introduce a separate vector-environment abstraction. Standard
