@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from numbers import Integral
 from typing import NamedTuple
 
 import jax
@@ -195,7 +196,7 @@ class ClassicSingleAgentEnv:
                 current_play,
                 policy_key,
                 total_reward,
-                _,
+                current_info,
                 actions,
                 players,
                 phases,
@@ -221,13 +222,18 @@ class ClassicSingleAgentEnv:
                 current_pass,
                 current_play,
             )
+            preserved_info = jax.tree_util.tree_map(
+                lambda old, new: jnp.where(completed, old, new),
+                current_info,
+                next_info,
+            )
             return (
                 next_match,
                 current_pass,
                 current_play,
                 policy_key,
                 total_reward + step_reward,
-                next_info,
+                preserved_info,
                 actions,
                 players,
                 phases,
@@ -473,8 +479,11 @@ def make_classic_single_agent(
     play_opponents: str | Sequence[str] = "medium",
     **rule_overrides: object,
 ) -> ClassicSingleAgentEnv:
-    if isinstance(controlled_player, bool) or not isinstance(controlled_player, int):
+    if isinstance(controlled_player, bool) or not isinstance(
+        controlled_player, Integral
+    ):
         raise TypeError("controlled_player must be an integer")
+    controlled_player = int(controlled_player)
     if not 0 <= controlled_player < NUM_PLAYERS:
         raise ValueError(f"controlled_player must be in [0, {NUM_PLAYERS})")
     opponent_players = tuple(

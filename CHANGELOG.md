@@ -38,3 +38,11 @@ separately version game semantics.
 - SHA-pinned CI actions, Ruff enforcement, and installed-wheel full-deal and
   HTML replay smoke tests.
 - Public contracts, contribution policies, citation metadata, and CI workflow.
+
+### Fixed
+
+- Fail-closed handling for non-scalar actions at the `simplest-v0` boundary.
+- Preservation of deal-completion diagnostics across classic opponent autoplay.
+- CI development dependencies, memory-safe test sharding, and installed-wheel
+  smoke coverage for both classic core and single-learner interfaces.
+- Consistent NumPy integer player IDs and explicit empty opponent validation.

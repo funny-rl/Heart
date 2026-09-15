@@ -362,7 +362,7 @@ the [rendering contract](docs/rendering.md).
 | Source status          | Research preview                                        |
 | GitHub tag and Release | Not published                                           |
 | PyPI package           | Not published                                           |
-| CI                     | Workflow included; public run pending push              |
+| CI                     | Python 3.10–3.12 workflow enabled                       |
 | API stability          | Pre-1.0; incompatible changes require changelog entries |
 
 A formal release exists only when one validated source commit, an annotated

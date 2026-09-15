@@ -263,10 +263,12 @@ def step(
     """Play one card; invalid actions leave the state unchanged."""
 
     raw_action = jnp.asarray(action)
-    is_integer_dtype = jnp.issubdtype(
-        raw_action.dtype, jnp.integer
-    ) and not jnp.issubdtype(raw_action.dtype, jnp.bool_)
-    if is_integer_dtype:
+    is_scalar_integer = (
+        raw_action.ndim == 0
+        and jnp.issubdtype(raw_action.dtype, jnp.integer)
+        and not jnp.issubdtype(raw_action.dtype, jnp.bool_)
+    )
+    if is_scalar_integer:
         in_bounds = (raw_action >= 0) & (raw_action < NUM_CARDS)
         action = raw_action.astype(jnp.int32)
     else:

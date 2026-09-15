@@ -231,8 +231,8 @@ def make_single_agent(
 
         return make_classic_single_agent(
             controlled_player=controlled_player,
-            pass_opponents=pass_opponents or opponents,
-            play_opponents=play_opponents or opponents,
+            pass_opponents=opponents if pass_opponents is None else pass_opponents,
+            play_opponents=opponents if play_opponents is None else play_opponents,
             **rule_overrides,
         )
     if pass_opponents is not None or play_opponents is not None:

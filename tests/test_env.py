@@ -233,6 +233,22 @@ def test_non_integer_actions_are_invalid_and_do_not_change_state(action):
     np.testing.assert_array_equal(np.asarray(rewards), np.zeros(4))
 
 
+@pytest.mark.parametrize(
+    "action",
+    [jnp.asarray([0]), jnp.asarray([0, 1]), jnp.asarray([[0]])],
+)
+def test_non_scalar_actions_are_invalid_and_do_not_change_state(action):
+    env = heart.make()
+    state, _ = env.reset(jax.random.key(77))
+
+    next_state, _, rewards, _, info = jax.jit(env.step)(state, action)
+
+    assert bool(info.invalid_action)
+    np.testing.assert_array_equal(np.asarray(rewards), np.zeros(4))
+    for before, after in zip(jax.tree.leaves(state), jax.tree.leaves(next_state)):
+        np.testing.assert_array_equal(np.asarray(before), np.asarray(after))
+
+
 def test_unbroken_hearts_may_be_led_only_when_no_nonheart_remains():
     env = heart.make()
     state, _ = env.reset(jax.random.key(49))

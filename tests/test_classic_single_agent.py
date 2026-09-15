@@ -63,6 +63,10 @@ def test_deal_boundary_is_sticky_for_every_controlled_seat(controlled_player):
     assert float(info.discount) == 1.0
     assert int(info.event_count) == int(info.event_valid.sum())
     assert 1 <= int(info.event_count) <= heart.MAX_DECISION_EVENTS
+    assert bool(info.core.deal_completed)
+    np.testing.assert_array_equal(
+        np.asarray(info.core.deal_scores), np.asarray(state.match.last_deal_scores)
+    )
 
 
 def test_passing_deals_have_fourteen_decisions_and_hold_has_thirteen():
@@ -168,3 +172,14 @@ def test_invalid_action_has_empty_trace_and_terminal_discount_is_zero():
     assert bool(terminal_info.match_completed)
     assert int(terminal_info.event_count) == 0
     assert float(terminal_info.discount) == 0.0
+
+
+@pytest.mark.parametrize("integer_type", [np.int32, np.int64])
+def test_classic_factory_accepts_numpy_integer_players(integer_type):
+    env = heart.make_single_agent("classic-v0", controlled_player=integer_type(1))
+    assert env.controlled_player == 1
+
+
+def test_explicit_empty_phase_opponents_are_not_silently_replaced():
+    with pytest.raises(ValueError, match="exactly three"):
+        heart.make_single_agent("classic-v0", pass_opponents=[])
