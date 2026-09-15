@@ -9,6 +9,13 @@ from heart.cards import CARD_NAMES, NUM_PLAYERS
 from heart.types import State
 
 
+def _terminal_rewards(state: State) -> np.ndarray:
+    """Reconstruct the terminal relative rewards from effective scores."""
+
+    scores = np.asarray(state.scores, dtype=np.float32)
+    return (scores.sum(dtype=np.float32) - scores) / (NUM_PLAYERS - 1) - scores
+
+
 def _visible_trick(state: State) -> tuple[np.ndarray, int, bool]:
     """Return cards, original leader, and whether this is the previous trick."""
 
@@ -58,7 +65,8 @@ def render_ansi(state: State, viewer: int | None = None) -> str:
             f"hearts_broken={bool(state.hearts_broken)}"
         ),
         f"{'Last trick' if previous else 'Table'}: {_cards_text(visible_trick)}",
-        "Scores: " + "  ".join(f"P{i}={int(penalties[i])}" for i in range(NUM_PLAYERS)),
+        "Penalties: "
+        + "  ".join(f"P{i}={int(penalties[i])}" for i in range(NUM_PLAYERS)),
     ]
     for player in range(NUM_PLAYERS):
         cards = np.flatnonzero(hands[player])
@@ -71,12 +79,17 @@ def render_ansi(state: State, viewer: int | None = None) -> str:
         identity = " (YOU)" if player == viewer else ""
         lines.append(f"{marker} P{player}{identity}: {contents}")
     if bool(state.terminated):
+        rewards = _terminal_rewards(state)
         if int(state.moon_shooter) >= 0:
             lines.append(f"P{int(state.moon_shooter)} shot the moon")
-            lines.append(
-                "Effective scores: "
-                + "  ".join(f"P{i}={int(scores[i])}" for i in range(NUM_PLAYERS))
-            )
+        lines.append(
+            "Effective scores: "
+            + "  ".join(f"P{i}={int(scores[i])}" for i in range(NUM_PLAYERS))
+        )
+        lines.append(
+            "Terminal rewards: "
+            + "  ".join(f"P{i}={float(rewards[i]):+.1f}" for i in range(NUM_PLAYERS))
+        )
         winners = np.flatnonzero(np.asarray(state.winner_mask))
         lines.append("Winner: " + ", ".join(f"P{int(player)}" for player in winners))
     return "\n".join(lines)

@@ -34,3 +34,14 @@ def test_ansi_shows_completed_trick_at_fourth_and_terminal_boundaries():
     current = heart.render_ansi(_advance_state(5))
     assert "Table:" in current
     assert "Last trick:" not in current
+
+
+def test_ansi_labels_live_penalties_and_terminal_scores_and_rewards():
+    live = heart.render_ansi(_advance_state(4))
+    assert "Penalties:" in live
+    assert "Effective scores:" not in live
+
+    final = heart.render_ansi(_advance_state(52))
+    assert "Penalties:" in final
+    assert "Effective scores:" in final
+    assert "Terminal rewards:" in final

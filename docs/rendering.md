@@ -25,7 +25,8 @@ path = heart.save_html(state, "heart-game.html", viewer=0)
 
 The HTML is a complete dependency-free document. It shows all hands, current
 trick placement, active player, legal cards for the active player, captured
-hearts and Q♠, scores, winner state, and moon-shot state. Immediately after a
+hearts and Q♠, live cumulative penalties, final effective scores, terminal
+rewards, winner state, and moon-shot state. Immediately after a
 trick completes, it reconstructs and displays the completed four-card trick
 with the original player seats; a newly started trick takes precedence after
 its first card.

@@ -84,3 +84,23 @@ def test_save_gif_requires_gif_suffix_and_forces_format(tmp_path):
 
     output = heart.save_gif([state], tmp_path / "preview.GIF")
     assert output.read_bytes().startswith(b"GIF")
+
+
+def test_gif_labels_live_penalties_and_terminal_scores_and_rewards(monkeypatch):
+    import heart.gif_render as renderer
+
+    labels = []
+    original_center = renderer._center
+
+    def record(draw, xy, text, font, fill):
+        labels.append(text)
+        return original_center(draw, xy, text, font, fill)
+
+    monkeypatch.setattr(renderer, "_center", record)
+    renderer.render_gif_frame(_advance_state(4))
+    assert sum(str(label).startswith("PENALTY ") for label in labels) == 4
+
+    labels.clear()
+    renderer.render_gif_frame(_advance_state(52))
+    assert sum(str(label).startswith("SCORE ") for label in labels) == 4
+    assert all("REWARD" in label for label in labels if str(label).startswith("SCORE "))

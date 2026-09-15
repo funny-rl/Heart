@@ -15,7 +15,7 @@ from heart.cards import (
     RANK_NAMES,
     SUIT_SYMBOLS,
 )
-from heart.render import _visible_trick
+from heart.render import _terminal_rewards, _visible_trick
 from heart.rules import legal_action_mask
 from heart.types import State
 
@@ -144,7 +144,9 @@ def render_gif_frame(
     active = int(state.active_player)
     penalties = np.asarray(state.penalties)
     scores = np.asarray(state.scores)
-    legal = None if bool(state.terminated) else np.asarray(host_legal)
+    ended = bool(state.terminated)
+    rewards = _terminal_rewards(state) if ended else None
+    legal = None if ended else np.asarray(host_legal)
     panel_centers = {
         "bottom": (480, 430),
         "top": (480, 72),
@@ -161,18 +163,23 @@ def render_gif_frame(
     for player in range(NUM_PLAYERS):
         seat = _seat(player, viewer)
         px, py = panel_centers[seat]
-        current_score = int(
-            scores[player] if bool(state.terminated) else penalties[player]
-        )
         identity = " · YOU" if player == viewer else ""
-        turn = " · TURN" if player == active and not bool(state.terminated) else ""
-        label = f"P{player}{identity}{turn}  {current_score}pt"
-        label_box = draw.textbbox((0, 0), label, font=small_font)
+        turn = " · TURN" if player == active and not ended else ""
+        name = f"P{player}{identity}{turn}"
+        metric = (
+            f"SCORE {int(scores[player])}  ·  REWARD {float(rewards[player]):+.1f}"
+            if ended
+            else f"PENALTY {int(penalties[player])}"
+        )
+        name_box = draw.textbbox((0, 0), name, font=small_font)
+        metric_box = draw.textbbox((0, 0), metric, font=small_font)
         pad = round(7 * scale)
-        lw = label_box[2] - label_box[0] + 2 * pad
-        lh = label_box[3] - label_box[1] + 2 * pad
+        lw = max(name_box[2] - name_box[0], metric_box[2] - metric_box[0]) + 2 * pad
+        line_height = max(name_box[3] - name_box[1], metric_box[3] - metric_box[1])
+        lh = 2 * line_height + round(5 * scale) + 2 * pad
         fill = "#594915" if turn else "#09231bdc"
-        outline = "#fbbf24" if turn else "#ffffff35"
+        winner = ended and bool(np.asarray(state.winner_mask)[player])
+        outline = "#86efac" if winner else "#fbbf24" if turn else "#ffffff35"
         draw.rounded_rectangle(
             (
                 round(sx(px) - lw / 2),
@@ -185,7 +192,21 @@ def render_gif_frame(
             outline=outline,
             width=max(1, round(2 * scale)),
         )
-        _center(draw, (sx(px), sy(py)), label, small_font, "#f8fafc")
+        line_offset = (line_height + round(3 * scale)) / 2
+        _center(
+            draw,
+            (sx(px), round(sy(py) - line_offset)),
+            name,
+            small_font,
+            "#f8fafc",
+        )
+        _center(
+            draw,
+            (sx(px), round(sy(py) + line_offset)),
+            metric,
+            small_font,
+            "#93c5fd" if ended else "#d1fae5",
+        )
 
         cards = [int(card) for card in np.flatnonzero(hands[player])]
         ox, oy = hand_origins[seat]

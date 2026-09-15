@@ -18,7 +18,7 @@ from heart.cards import (
     RANK_NAMES,
     SUIT_SYMBOLS,
 )
-from heart.render import _visible_trick
+from heart.render import _terminal_rewards, _visible_trick
 from heart.types import State
 
 _SEATS = ("bottom", "left", "top", "right")
@@ -76,6 +76,7 @@ def render_html(state: State, viewer: int | None = 0) -> str:
     scores = np.asarray(state.scores)
     active = int(state.active_player)
     ended = bool(state.terminated)
+    rewards = _terminal_rewards(state) if ended else None
 
     legal_mask = None if ended else np.asarray(host_legal_mask)
 
@@ -88,13 +89,22 @@ def render_html(state: State, viewer: int | None = 0) -> str:
             classes.append("active")
         if ended and bool(np.asarray(state.winner_mask)[player]):
             classes.append("winner")
-        score = int(scores[player]) if ended else int(penalties[player])
         identity = " · 나" if player == viewer else ""
         turn = " · 차례" if player == active and not ended else ""
+        if ended:
+            score_html = (
+                f'<span class="score"><em>정산 점수</em><b>{int(scores[player])}</b></span>'
+                f'<span class="reward">보상 {float(rewards[player]):+.1f}</span>'
+            )
+        else:
+            score_html = (
+                f'<span class="score"><em>누적 벌점</em>'
+                f"<b>{int(penalties[player])}</b></span>"
+            )
         panels.append(
             f'<section class="{" ".join(classes)}">'
-            f"<strong>P{player}{identity}{turn}</strong><span>{score}점</span>"
-            f"<small>{_captured(state, player)}</small></section>"
+            f"<strong>P{player}{identity}{turn}</strong>{score_html}"
+            f'<small class="captured">{_captured(state, player)}</small></section>'
         )
 
         cards = [int(card) for card in np.flatnonzero(hands[player])]
@@ -152,8 +162,8 @@ body{{margin:0;min-width:320px;min-height:100vh;display:grid;place-items:center;
 .game{{width:min(1080px,96vw);padding:16px}}.hud{{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 18px 12px}}
 .logo{{font-size:22px;font-weight:900;letter-spacing:.12em}}.logo b{{color:#fb7185}}.status{{font-weight:800}}.meta{{font-size:14px;color:#aab4c4}}
 .table{{position:relative;min-height:680px;overflow:hidden;border:14px solid #68452d;border-radius:42%;background:radial-gradient(circle,rgba(255,255,255,.08),transparent 30%),repeating-linear-gradient(25deg,rgba(255,255,255,.012) 0 2px,transparent 2px 5px),#146446;box-shadow:inset 0 0 55px #062d24,0 24px 65px #0008}}
-.player{{position:absolute;z-index:5;min-width:116px;padding:9px 12px;display:grid;gap:2px;text-align:center;border:1px solid #ffffff2b;border-radius:14px;background:#091c17d9;box-shadow:0 8px 20px #0005}}
-.player strong{{font-size:14px}}.player>span{{font-size:13px;color:#d1fae5}}.player small{{display:flex;justify-content:center;gap:7px;min-height:18px}}.player.active{{border-color:#fcd34d;box-shadow:0 0 0 3px #fcd34d38}}.player.winner{{border-color:#86efac}}
+.player{{position:absolute;z-index:5;min-width:136px;padding:9px 12px;display:grid;gap:3px;text-align:center;border:1px solid #ffffff2b;border-radius:14px;background:#091c17ed;box-shadow:0 8px 20px #0005}}
+.player strong{{font-size:14px}}.score{{display:flex;align-items:baseline;justify-content:center;gap:6px;color:#d1fae5}}.score em{{font-size:10px;font-style:normal;color:#9fb7ad;text-transform:uppercase;letter-spacing:.05em}}.score b{{font-size:19px;font-variant-numeric:tabular-nums}}.reward{{font-size:11px;font-weight:800;color:#93c5fd}}.player .captured{{display:flex;justify-content:center;gap:7px;min-height:18px}}.player.active{{border-color:#fcd34d;box-shadow:0 0 0 3px #fcd34d38}}.player.winner{{border-color:#86efac;box-shadow:0 0 0 3px #86efac38}}
 .h-token{{color:#fda4af}}.q-token{{color:#e2e8f0}}.seat-top{{top:15px;left:50%;transform:translateX(-50%)}}.seat-bottom{{bottom:135px;left:50%;transform:translateX(-50%)}}.seat-left{{left:16px;top:43%;transform:translateY(-50%)}}.seat-right{{right:16px;top:43%;transform:translateY(-50%)}}
 .hand{{position:absolute;z-index:4;display:flex;justify-content:center;pointer-events:none}}.hand-bottom{{left:50%;bottom:17px;transform:translateX(-50%);width:84%}}.hand-top{{left:50%;top:88px;transform:translateX(-50%);max-width:60%}}.hand-left{{left:86px;top:43%;transform:translateY(-50%);max-width:36%}}.hand-right{{right:86px;top:43%;transform:translateY(-50%);max-width:36%}}
 .card{{position:relative;flex:0 0 62px;width:62px;height:88px;margin-left:-17px;border:1px solid #cbd5e1;border-radius:8px;background:linear-gradient(145deg,#fff,#e8edf4);color:#111827;box-shadow:0 5px 13px #0006}}.card:first-child{{margin-left:0}}.card.red{{color:#d91f45}}.card.legal{{transform:translateY(-9px);border:3px solid #fcd34d;box-shadow:0 8px 18px #0007,0 0 14px #fcd34d99}}.card.small{{flex-basis:39px;width:39px;height:56px;margin-left:-21px}}

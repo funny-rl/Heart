@@ -119,3 +119,14 @@ def test_replay_clamps_fastest_supported_rate_to_one_millisecond():
     state, _ = heart.make().reset(jax.random.key(405))
     rendered = heart.render_replay_html([state], fps=1000)
     assert "const baseInterval=1;" in rendered
+
+
+def test_html_labels_live_penalties_and_terminal_scores_and_rewards():
+    live = heart.render_html(_advance_states(4)[-1])
+    assert live.count("누적 벌점") == heart.NUM_PLAYERS
+    assert "정산 점수" not in live
+
+    final = heart.render_html(_advance_states(52)[-1])
+    assert final.count("정산 점수") == heart.NUM_PLAYERS
+    assert final.count('class="reward"') == heart.NUM_PLAYERS
+    assert "보상 +" in final or "보상 -" in final
