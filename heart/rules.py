@@ -162,14 +162,12 @@ def settle_deal(
 
 
 def relative_rewards(scores: Array, normalizer: float = 1.0) -> Array:
-    """Return opponent-relative rewards with an exactly zero float32 sum."""
+    """Return mathematically zero-sum opponent-relative rewards."""
 
     float_scores = scores.astype(jnp.float32)
     total = jnp.sum(float_scores, dtype=jnp.float32)
     rewards = ((total - float_scores) / (NUM_PLAYERS - 1) - float_scores) / normalizer
-    # Division by three can leave a small float32 residual. Reconstructing one
-    # component keeps the public zero-sum contract exact under JAX reductions.
-    return rewards.at[-1].set(-jnp.sum(rewards[:-1], dtype=jnp.float32))
+    return rewards
 
 
 def _apply_legal_action(
