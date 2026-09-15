@@ -1,0 +1,50 @@
+name: Bug report
+description: Report reproducible incorrect behavior in HEART
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Please remove private data and provide the smallest reproducible case.
+  - type: input
+    id: version
+    attributes:
+      label: HEART version or commit
+      placeholder: 0.1.0 or a Git commit hash
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Runtime
+      placeholder: Python, JAX, jaxlib, backend, and device
+    validations:
+      required: true
+  - type: input
+    id: mode
+    attributes:
+      label: Environment and configuration
+      placeholder: simplest-v0, including every override
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include the seed/key derivation and action sequence when relevant.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security check
+      options:
+        - label: This report does not contain a privately reportable vulnerability.
+          required: true

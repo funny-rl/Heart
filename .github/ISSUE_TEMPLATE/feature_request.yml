@@ -1,0 +1,34 @@
+name: Feature request
+description: Propose a focused environment, policy, or tooling improvement
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Research or engineering problem
+      description: Explain the limitation independently of a preferred implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed contract
+      description: Describe behavior, API, and compatibility impact.
+    validations:
+      required: true
+  - type: dropdown
+    id: compatibility
+    attributes:
+      label: Does this change environment semantics?
+      options:
+        - "No"
+        - "Yes — it needs a new environment ID"
+        - "Unsure"
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Alternatives and evidence
+      description: Link rules, papers, measurements, or prior implementations when available.

@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use HEART in research, please cite this software and the exact source commit."
+type: software
+title: "HEART: An Accelerator-Native Hearts Environment for Competitive Multi-Agent Reinforcement Learning"
+version: 0.1.0
+authors:
+  - family-names: Park
+    given-names: Hyunwoo
+    affiliation: "CIDA Lab, University of Seoul"
+license: Apache-2.0
+abstract: >-
+  A JAX-native Hearts environment for competitive multi-agent reinforcement
+  learning, batched simulation, rule-policy baselines, and inspectable replay.
+keywords:
+  - Hearts
+  - multi-agent reinforcement learning
+  - JAX
+  - simulation
+  - card games

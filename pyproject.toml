@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,17 +8,32 @@ version = "0.1.0"
 description = "A fast, accelerator-native Hearts environment for competitive MARL"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["jax>=0.4.38"]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{name = "Hyunwoo Park"}]
+keywords = [
+  "hearts",
+  "multi-agent",
+  "reinforcement-learning",
+  "jax",
+  "simulation",
+]
+dependencies = ["jax>=0.4.38", "numpy>=1.26"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
+dev = ["build>=1", "pytest>=8", "ruff>=0.6"]
 
 [tool.setuptools.packages.find]
 include = ["heart*"]
@@ -26,4 +41,3 @@ include = ["heart*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-

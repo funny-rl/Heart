@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="300" viewBox="0 0 1280 300" role="img" aria-labelledby="title desc">
+  <title id="title">HEART</title>
+  <desc id="desc">Two playing cards surrounding the HEART project name</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#111827"/><stop offset="1" stop-color="#2b1745"/>
+    </linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity=".35"/></filter>
+  </defs>
+  <rect width="1280" height="300" rx="38" fill="url(#bg)"/>
+  <g filter="url(#shadow)" font-family="Georgia,serif" font-weight="700" text-anchor="middle">
+    <g transform="translate(105 46) rotate(-10 72 102)"><rect width="144" height="204" rx="14" fill="#fff"/><text x="72" y="128" font-size="86" fill="#111827">♣</text></g>
+    <g transform="translate(1031 46) rotate(10 72 102)"><rect width="144" height="204" rx="14" fill="#fff"/><text x="72" y="128" font-size="86" fill="#e11d48">♥</text></g>
+  </g>
+  <text x="640" y="137" fill="#f8fafc" font-family="Inter,Arial,sans-serif" font-size="104" font-weight="900" letter-spacing="18" text-anchor="middle">HEART</text>
+  <text x="640" y="195" fill="#fda4af" font-family="Inter,Arial,sans-serif" font-size="25" font-weight="700" letter-spacing="4" text-anchor="middle">COMPETITIVE MARL · JAX NATIVE</text>
+  <text x="640" y="243" fill="#94a3b8" font-family="Inter,Arial,sans-serif" font-size="20" text-anchor="middle">52 actions · 13 tricks · 4 independent players</text>
+</svg>

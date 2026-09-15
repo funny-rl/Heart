@@ -27,8 +27,11 @@ def render_ansi(state: State, viewer: int | None = None) -> str:
     penalties = np.asarray(state.penalties)
     scores = np.asarray(state.scores)
     lines = [
-        f"Trick {min(int(state.trick_index) + 1, 13)}/13 | "
-        f"active=P{int(state.active_player)} | hearts_broken={bool(state.hearts_broken)}",
+        (
+            f"Trick {min(int(state.trick_index) + 1, 13)}/13 | "
+            f"active=P{int(state.active_player)} | "
+            f"hearts_broken={bool(state.hearts_broken)}"
+        ),
         f"Table: {_cards_text(current_trick)}",
         "Scores: " + "  ".join(f"P{i}={int(penalties[i])}" for i in range(NUM_PLAYERS)),
     ]
