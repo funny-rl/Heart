@@ -11,7 +11,8 @@ from heart.rules import legal_action_mask, observe, reset, step, step_unchecked
 from heart.types import Info, Observation, State
 
 SIMPLEST_V0 = "simplest-v0"
-AVAILABLE_MODES = (SIMPLEST_V0,)
+CLASSIC_V0 = "classic-v0"
+AVAILABLE_MODES = (SIMPLEST_V0, CLASSIC_V0)
 
 
 @dataclass(frozen=True)
@@ -43,10 +44,14 @@ class HeartEnv:
         return legal_action_mask(state, self.rules)
 
 
-def make(mode: str = SIMPLEST_V0, **rule_overrides: object) -> HeartEnv:
+def make(mode: str = SIMPLEST_V0, **rule_overrides: object):
     """Create an environment by stable mode name."""
 
     if mode not in AVAILABLE_MODES:
         raise ValueError(f"unknown mode {mode!r}; available modes: {AVAILABLE_MODES}")
+    if mode == CLASSIC_V0:
+        from heart.classic import make_classic
+
+        return make_classic(**rule_overrides)
     rules = SingleDealRules(**rule_overrides)
     return HeartEnv(rules=rules, mode=mode)

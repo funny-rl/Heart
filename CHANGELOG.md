@@ -8,6 +8,16 @@ separately version game semantics.
 
 ### Added
 
+- A checked-in 57-frame classic deal-transition GIF and interactive HTML replay
+  covering left passing, all 52 card plays, scoring, and the next-deal boundary.
+- JAX-native `classic-v0` complete matches to 100 points with 13-point Q♠,
+  cumulative scoring, intentional shared-lowest winners, moon scoring, and the
+  left/right/across/hold passing cycle over 286 three-card combinations.
+- A classic single-learner adapter with 14 decisions on passing deals and 13 on
+  hold deals, sparse normalized deal rewards, discount metadata, compressed
+  core-event traces, and deterministic `replay_events` expansion.
+- Full-observability classic ANSI, HTML, and GIF rendering with cumulative
+  scoreboards, pass flow, sticky deal-boundary summaries, and match winners.
 - JAX-native four-player `simplest-v0` environment with a fixed 52-action deal.
 - Follow-suit, 2♣ opening, first-trick point, and hearts-broken action masks.
 - Five-point Q♠, terminal zero-sum rewards, and solo-win moon-shot scoring.

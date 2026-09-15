@@ -14,10 +14,11 @@ def choose_first_legal(observation):
     return jnp.argmax(observation.action_mask)
 
 
-def test_simplest_v0_is_default_and_only_registered_mode():
+def test_simplest_v0_is_default_and_classic_is_registered():
     assert heart.make().mode == "simplest-v0"
     assert heart.make("simplest-v0").mode == "simplest-v0"
-    assert heart.AVAILABLE_MODES == ("simplest-v0",)
+    assert heart.AVAILABLE_MODES == ("simplest-v0", "classic-v0")
+    assert heart.make("classic-v0").mode == "classic-v0"
 
 
 def play_to_end(env, key):

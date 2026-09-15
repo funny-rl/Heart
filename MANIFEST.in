@@ -1,5 +1,5 @@
 include README.md LICENSE NOTICE CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md CHANGELOG.md CITATION.cff
-recursive-include docs *.md *.svg *.gif
+recursive-include docs *.md *.svg *.gif *.html
 recursive-include examples *.py
 recursive-include benchmarks *.py
 prune tests

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from jax import device_get
@@ -56,7 +57,13 @@ def _seat(player: int, anchor: int) -> str:
     return _SEATS[(player - anchor) % NUM_PLAYERS]
 
 
-def render_html(state: State, viewer: int | None = 0) -> str:
+def render_html(
+    state: State,
+    viewer: int | None = 0,
+    *,
+    reward_override: np.ndarray | None = None,
+    winner_override: np.ndarray | None = None,
+) -> str:
     """Return a full-observability HTML game-table snapshot.
 
     ``viewer`` only identifies the local player and rotates that seat to the
@@ -76,7 +83,18 @@ def render_html(state: State, viewer: int | None = 0) -> str:
     scores = np.asarray(state.scores)
     active = int(state.active_player)
     ended = bool(state.terminated)
-    rewards = _terminal_rewards(state) if ended else None
+    rewards = (
+        np.asarray(reward_override)
+        if ended and reward_override is not None
+        else _terminal_rewards(state)
+        if ended
+        else None
+    )
+    winners = (
+        np.asarray(winner_override)
+        if winner_override is not None
+        else np.asarray(state.winner_mask)
+    )
 
     legal_mask = None if ended else np.asarray(host_legal_mask)
 
@@ -87,7 +105,7 @@ def render_html(state: State, viewer: int | None = 0) -> str:
         classes = ["player", f"seat-{seat}"]
         if player == active and not ended:
             classes.append("active")
-        if ended and bool(np.asarray(state.winner_mask)[player]):
+        if ended and bool(winners[player]):
             classes.append("winner")
         identity = " · 나" if player == viewer else ""
         turn = " · 차례" if player == active and not ended else ""
@@ -141,8 +159,10 @@ def render_html(state: State, viewer: int | None = 0) -> str:
     if ended and int(state.moon_shooter) >= 0:
         status = f"P{int(state.moon_shooter)} 문샷 · 단독 우승"
     elif ended:
-        winners = np.flatnonzero(np.asarray(state.winner_mask))
-        status = "게임 종료 · " + ", ".join(f"P{int(p)}" for p in winners) + " 승리"
+        winning_players = np.flatnonzero(winners)
+        status = (
+            "게임 종료 · " + ", ".join(f"P{int(p)}" for p in winning_players) + " 승리"
+        )
     else:
         status = f"P{active}의 차례"
 
@@ -190,7 +210,11 @@ def save_html(state: State, path: str | Path, viewer: int | None = 0) -> Path:
 
 
 def render_replay_html(
-    states: Sequence[State], viewer: int | None = 0, fps: float = 2.0
+    states: Sequence[State],
+    viewer: int | None = 0,
+    fps: float = 2.0,
+    *,
+    frame_renderer: Callable[[Any, int | None], str] = render_html,
 ) -> str:
     """Return a standalone, interactive full-deal replay document."""
 
@@ -199,7 +223,7 @@ def render_replay_html(
     if not math.isfinite(fps) or not 0 < fps <= 1000:
         raise ValueError("fps must be finite and in (0, 1000]")
 
-    frames = [render_html(state, viewer) for state in states]
+    frames = [frame_renderer(state, viewer) for state in states]
     # Escaping '<' prevents a future renderer string from ending this script tag.
     frames_json = json.dumps(frames, ensure_ascii=False).replace("<", "\\u003c")
     interval = max(1, round(1000.0 / fps))

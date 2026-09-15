@@ -216,14 +216,27 @@ def make_single_agent(
     *,
     controlled_player: int = 0,
     opponents: str | Sequence[str] = "medium",
+    pass_opponents: str | Sequence[str] | None = None,
+    play_opponents: str | Sequence[str] | None = None,
     **rule_overrides: object,
-) -> SingleAgentEnv:
+):
     """Create a 13-action learner-versus-rules environment.
 
     A three-item opponent sequence is assigned to the non-controlled player IDs
     in ascending order. A single difficulty name is broadcast to all three.
     """
 
+    if mode == "classic-v0":
+        from heart.classic_single_agent import make_classic_single_agent
+
+        return make_classic_single_agent(
+            controlled_player=controlled_player,
+            pass_opponents=pass_opponents or opponents,
+            play_opponents=play_opponents or opponents,
+            **rule_overrides,
+        )
+    if pass_opponents is not None or play_opponents is not None:
+        raise ValueError("phase-specific opponents require mode='classic-v0'")
     if isinstance(controlled_player, bool) or not isinstance(
         controlled_player, Integral
     ):

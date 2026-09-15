@@ -8,11 +8,15 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/) [![JAX](https://img.shields.io/badge/JAX-%E2%89%A50.4.38-orange.svg)](https://github.com/jax-ml/jax) [![Version](https://img.shields.io/badge/version-0.1.0-2563eb.svg)](#release-status) [![Status](https://img.shields.io/badge/status-research--preview-f59e0b.svg)](#release-status) [![Citation](https://img.shields.io/badge/cite-CITATION.cff-lightgrey.svg)](CITATION.cff)
 
-[Why HEART](#why-heart) · [Rules](#simplest-v0) · [Install](#installation) · [Quickstart](#quickstart) · [Batching](#batched-rollouts) · [Rendering](#rendering-and-replays) · [Contracts](#core-contracts) · [Documentation](#documentation)
+[Why HEART](#why-heart) · [Modes](#environment-modes) · [Install](#installation) · [Quickstart](#quickstart) · [Batching](#batched-rollouts) · [Rendering](#rendering-and-replays) · [Contracts](#core-contracts) · [Documentation](#documentation)
 
 <img src="docs/assets/rendering/simplest-v0-preview.gif" alt="Five-second full-observability HEART simplest-v0 match preview" width="760">
 
 <sub>HEART 0.1.0 · `simplest-v0` · seed 42 · four `medium` reference policies · 53 full-observability states rendered in approximately five seconds.</sub>
+
+<a href="docs/assets/rendering/classic-v0-deal-transition.html"><img src="docs/assets/rendering/classic-v0-deal-transition.gif" alt="Full-observability HEART classic-v0 left-pass deal transition" width="760"></a>
+
+<sub>`classic-v0` · left passing through the next-deal boundary · 57 full-observability frames in 7.92 seconds · <a href="docs/assets/rendering/classic-v0-deal-transition.html">open the interactive HTML replay</a>.</sub>
 
 </div>
 
@@ -22,9 +26,10 @@ HEART is a compact JAX-native implementation of the card game Hearts for
 multi-agent learning, evaluation, and reproducible simulation. The Python
 distribution is `heart-marl`; the installed package is imported as `heart`.
 
-Its fixed 52-action deal is designed to compose directly with `jax.jit`,
-`jax.vmap`, and `jax.lax.scan`. Rules and state transitions remain in the lean
-compiled path, while terminal/HTML rendering and replay generation remain
+Its deal engine is designed to compose directly with `jax.jit`, `jax.vmap`, and
+`jax.lax.scan`: `simplest-v0` is one fixed 52-card deal, while `classic-v0`
+adds passing and a complete match to 100 points. Rules and state transitions
+remain in the lean compiled path, while rendering and replay expansion remain
 host-side.
 
 > [!NOTE]
@@ -33,38 +38,39 @@ host-side.
 
 ## Why HEART
 
-| Contract | What it provides |
-| --- | --- |
-| **Fixed horizon** | One deal always contains 52 card actions and 13 tricks, which makes batched rollouts straightforward. |
-| **Pure JAX transition** | Immutable array state, explicit random keys, and no hidden environment mutation. |
-| **Competitive rewards** | A terminal-only, zero-sum reward across four independent players. |
-| **Legal-action masks** | A 52-way mask enforces the opening card, following suit, first-trick restrictions, and heart-leading rules. |
-| **Reference opponents** | Seeded `easy`, `medium`, and `hard` rule policies share the learning-policy interface. |
-| **Inspectable replays** | Full-observability terminal, HTML snapshot, and portable interactive replay outputs. |
+| Contract                | What it provides                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| **Structured horizons** | Every deal has 52 card plays; `classic-v0` adds four pass events except on hold deals.     |
+| **Pure JAX transition** | Immutable array state, explicit random keys, and no hidden environment mutation.           |
+| **Competitive rewards** | Zero-sum deal outcomes: terminal in `simplest-v0`, at every deal boundary in `classic-v0`. |
+| **Legal-action masks**  | A 52-way play mask enforces card rules; classic passing adds a 286-way combination mask.   |
+| **Reference opponents** | Seeded `easy`, `medium`, and `hard` rule policies share the learning-policy interface.     |
+| **Inspectable replays** | Full-observability terminal, HTML snapshot, and portable interactive replay outputs.       |
 
 Training algorithms are intentionally not bundled. HEART supplies the game
 contract and reference policies; callers retain ownership of batching,
 learning, evaluation, and experiment tracking.
 
-## `simplest-v0`
+## Environment modes
 
-`simplest-v0` is the only registered mode and the default returned by
-`heart.make()`.
+### `simplest-v0`
 
-| Rule | Value |
-| --- | --- |
-| Players | 4 independent players |
-| Deck | Standard 52-card deck, 13 cards per player |
-| Episode length | Exactly 52 legal actions / 13 tricks |
-| Passing phase | None |
-| Opening lead | 2♣ |
-| Following suit | Required when possible |
-| Leading hearts | Forbidden until hearts are broken, unless only hearts remain |
-| First trick | Point cards cannot be discarded when a non-point card is available |
-| Heart penalty | 1 point each |
-| Q♠ penalty | 5 points |
+`simplest-v0` is the default returned by `heart.make()`.
+
+| Rule              | Value                                                                                     |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| Players           | 4 independent players                                                                     |
+| Deck              | Standard 52-card deck, 13 cards per player                                                |
+| Episode length    | Exactly 52 legal actions / 13 tricks                                                      |
+| Passing phase     | None                                                                                      |
+| Opening lead      | 2♣                                                                                        |
+| Following suit    | Required when possible                                                                    |
+| Leading hearts    | Forbidden until hearts are broken, unless only hearts remain                              |
+| First trick       | Point cards cannot be discarded when a non-point card is available                        |
+| Heart penalty     | 1 point each                                                                              |
+| Q♠ penalty        | 5 points                                                                                  |
 | Shooting the moon | Capturing all 18 points gives the shooter 0 and every opponent 18; the shooter wins alone |
-| Reward timing | Zero before termination; one four-player reward vector after action 52 |
+| Reward timing     | Zero before termination; one four-player reward vector after action 52                    |
 
 The lowest effective score wins. At termination, player `i` receives
 
@@ -75,6 +81,23 @@ reward_i = mean(effective_scores_of_other_players) - effective_score_i
 The four rewards sum to zero mathematically (subject to ordinary float32
 rounding). Raw penalties do not sum to zero. For a moon shot, rewards are
 `[+18, -6, -6, -6]`, rotated to the shooter.
+
+### `classic-v0`
+
+`classic-v0` is a complete match with standard 13-point Q♠ scoring:
+
+| Rule          | Value                                                                |
+| ------------- | -------------------------------------------------------------------- |
+| Match end     | Checked after a deal when any cumulative score reaches 100           |
+| Winners       | Every player tied for the lowest cumulative score; no tie-break deal |
+| Passing       | Left, right, across, hold; repeating every four deals                |
+| Pass action   | One of `13C3 = 286` unordered triples of sorted hand slots           |
+| Deal events   | 56 on passing deals; 52 on hold deals                                |
+| Moon shot     | Shooter scores 0 for the deal; every opponent scores 26              |
+| Reward timing | Zero within a deal; normalized zero-sum vector at each deal boundary |
+
+See the normative [`classic-v0` contract](docs/classic.md) for phase masks,
+reward semantics, the single-learner adapter, and deal-boundary state.
 
 ## Installation
 
@@ -126,12 +149,40 @@ An action is an integer card ID in `[0, 52)`. Floats, booleans, out-of-range
 IDs, masked cards, and post-terminal actions are invalid: they leave state
 unchanged, return zero rewards, and set `info.invalid_action=True`.
 
-## Train one player in 13 decisions
+Run a complete classic match with separate pass and play policies:
+
+```python
+import jax
+
+import heart
+
+env = heart.make("classic-v0")
+pass_policy = heart.make_rule_pass_policy("medium")
+play_policy = heart.make_rule_policy("hard")
+key = jax.random.key(0)
+state, observation = env.reset(key)
+
+while not bool(state.terminated):
+    key, action_key = jax.random.split(key)
+    if int(observation.phase) == heart.PASS:
+        action = pass_policy(observation, action_key)
+    else:
+        action = play_policy(observation.game, action_key)
+    state, observation, rewards, terminated, info = env.step(state, action)
+
+print("match scores:", state.match_scores)
+print("winners:", state.winner_mask)
+```
+
+## Train one player
 
 Use the single-learner adapter when one learned policy should face rule-based
 opponents:
 
 ```python
+import jax
+import jax.numpy as jnp
+
 env = heart.make_single_agent(
     controlled_player=0,
     opponents=("easy", "medium", "hard"),
@@ -148,6 +199,24 @@ adapter masks played or illegal slots and automatically runs the other three
 players until the learner acts again. The underlying rules engine still applies
 all 52 card plays, while the learner sees exactly 13 decisions and one scalar
 terminal reward.
+
+For a complete classic match, select the versioned mode and optionally separate
+the pass and play opponents:
+
+```python
+env = heart.make_single_agent(
+    "classic-v0",
+    controlled_player=0,
+    pass_opponents="medium",
+    play_opponents="hard",
+)
+```
+
+A passing deal exposes one pass decision plus 13 plays, for 14 learner
+decisions; a hold deal exposes 13 plays. The adapter records the core events
+compressed inside each decision and expands them for replay with
+`env.replay_events(before_state, info)`. For learning across the sparse
+deal-boundary rewards, `gamma=1` is recommended.
 
 Use the core `heart.make()` environment for four-policy MARL or self-play; it
 keeps global 52-card actions so every policy and replay shares one unambiguous
@@ -201,14 +270,14 @@ backend, hardware, batch size, warm-up, and measured run count.
 
 ## Core contracts
 
-| Surface | Entry point | Boundary |
-| --- | --- | --- |
-| Environment | `heart.make`, `HeartEnv.reset`, `HeartEnv.step`, `HeartEnv.step_unchecked` | Safe public boundary plus opt-in trusted rollout path over immutable state |
-| State and observation | [`docs/environment.md`](docs/environment.md) | Omniscient environment state versus player-private policy input |
-| Rules and reward | [`docs/rules.md`](docs/rules.md) | Stable `simplest-v0` legality, scoring, termination, and reward semantics |
-| Reference policies | `heart.make_rule_policy` | Mask-respecting, seeded baselines; not claims of optimal play |
-| Rendering and replay | [`docs/rendering.md`](docs/rendering.md) | Full-observability host output, excluded from the compiled transition |
-| Reproducibility | [`docs/reproducibility.md`](docs/reproducibility.md) | Explicit seeds, revision reporting, and benchmark receipts |
+| Surface               | Entry point                                                            | Boundary                                                                |
+| --------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Environment           | `heart.make`, `HeartEnv`, `ClassicEnv`                                 | Versioned single-deal and complete-match handles over immutable state   |
+| State and observation | [`docs/environment.md`](docs/environment.md)                           | Omniscient environment state versus player-private policy input         |
+| Rules and reward      | [`docs/rules.md`](docs/rules.md), [`docs/classic.md`](docs/classic.md) | Versioned legality, scoring, termination, passing, and reward semantics |
+| Reference policies    | `heart.make_rule_policy`                                               | Mask-respecting, seeded baselines; not claims of optimal play           |
+| Rendering and replay  | [`docs/rendering.md`](docs/rendering.md)                               | Full-observability host output, excluded from the compiled transition   |
+| Reproducibility       | [`docs/reproducibility.md`](docs/reproducibility.md)                   | Explicit seeds, revision reporting, and benchmark receipts              |
 
 The learning observation is intentionally player-private. Full observability is
 a **rendering contract**, not permission for a policy to access hidden opponent
@@ -231,22 +300,33 @@ models. New policies should remain isolated from the environment transition.
 
 ## Rendering and replays
 
-Render one unbatched state as text or a standalone browser page:
+Render one unbatched `simplest-v0` state as text or a standalone browser page:
 
 ```python
 print(heart.render_ansi(state, viewer=0))
 heart.save_html(state, "heart-game.html", viewer=0)
 ```
 
-Create a compact animated preview with the optional rendering dependency:
+For a `classic-v0` match state, use `render_classic_ansi`,
+`render_classic_html`, `save_classic_html`, `save_classic_gif`, or
+`save_classic_replay_html`. These show the cumulative scoreboard, pass
+direction and choices, and completed-deal overlays.
+
+The checked-in preview follows one complete left-pass deal across its boundary:
+
+![HEART classic-v0 deal transition](docs/assets/rendering/classic-v0-deal-transition.gif)
+
+[Open the 57-frame interactive HTML replay](docs/assets/rendering/classic-v0-deal-transition.html).
+
+Create compact animated previews with the optional rendering dependency:
 
 ```bash
 python -m pip install -e '.[render]'
 python examples/render_gif.py --output heart-preview.gif
 ```
 
-Record the reset state and all 52 successor states to create an interactive
-single-file replay:
+Record the reset state and all 52 successors to create a `simplest-v0`
+interactive replay:
 
 ```python
 heart.save_replay_html(
@@ -257,29 +337,33 @@ heart.save_replay_html(
 )
 ```
 
-HTML replays provide play/pause, frame stepping, a timeline, speed controls,
-and keyboard navigation. Every hand is always visible. `viewer` only marks the
-local player and rotates that seat to the bottom; `viewer=None` selects a
-neutral spectator orientation.
+For the classic single-learner adapter, preserve the pre-decision state and
+expand its compressed event trace before rendering:
 
-```bash
-python examples/render_replay.py --output heart-replay.html --difficulty medium
+```python
+before = state
+state, observation, reward, terminated, info = env.step(state, action)
+classic_frames = env.replay_events(before, info)
+heart.save_classic_replay_html(classic_frames, "classic-replay.html", viewer=0)
 ```
 
-Generated HTML files do not belong in source control. See the
-[rendering contract](docs/rendering.md).
+HTML replays provide play/pause, frame stepping, a timeline, speed controls,
+and keyboard navigation. Every hand is visible. `viewer` only marks the local
+player and rotates that seat to the bottom; `viewer=None` selects a neutral
+spectator orientation. Generated outputs do not belong in source control. See
+the [rendering contract](docs/rendering.md).
 
 ## Release status
 
-| Surface | Current state |
-| --- | --- |
-| Version | `0.1.0` |
-| Environment IDs | `simplest-v0` |
-| Source status | Research preview |
-| GitHub tag and Release | Not published |
-| PyPI package | Not published |
-| CI | Workflow included; public run pending push |
-| API stability | Pre-1.0; incompatible changes require changelog entries |
+| Surface                | Current state                                           |
+| ---------------------- | ------------------------------------------------------- |
+| Version                | `0.1.0`                                                 |
+| Environment IDs        | `simplest-v0`, `classic-v0`                             |
+| Source status          | Research preview                                        |
+| GitHub tag and Release | Not published                                           |
+| PyPI package           | Not published                                           |
+| CI                     | Workflow included; public run pending push              |
+| API stability          | Pre-1.0; incompatible changes require changelog entries |
 
 A formal release exists only when one validated source commit, an annotated
 tag, a GitHub Release, and built distributions identify the same code. See
@@ -287,14 +371,15 @@ tag, a GitHub Release, and built distributions identify the same code. See
 
 ## Documentation
 
-| Area | Document |
-| --- | --- |
-| Documentation map | [`docs/README.md`](docs/README.md) |
-| State, observations, actions, and transitions | [`docs/environment.md`](docs/environment.md) |
-| `simplest-v0` rules and rewards | [`docs/rules.md`](docs/rules.md) |
-| Full-observability rendering and replay | [`docs/rendering.md`](docs/rendering.md) |
-| Seeds, batching, and performance evidence | [`docs/reproducibility.md`](docs/reproducibility.md) |
-| Release and compatibility policy | [`docs/release.md`](docs/release.md) |
+| Area                                               | Document                                             |
+| -------------------------------------------------- | ---------------------------------------------------- |
+| Documentation map                                  | [`docs/README.md`](docs/README.md)                   |
+| State, observations, actions, and transitions      | [`docs/environment.md`](docs/environment.md)         |
+| `simplest-v0` rules and rewards                    | [`docs/rules.md`](docs/rules.md)                     |
+| `classic-v0` match, passing, rewards, and learning | [`docs/classic.md`](docs/classic.md)                 |
+| Full-observability rendering and replay            | [`docs/rendering.md`](docs/rendering.md)             |
+| Seeds, batching, and performance evidence          | [`docs/reproducibility.md`](docs/reproducibility.md) |
+| Release and compatibility policy                   | [`docs/release.md`](docs/release.md)                 |
 
 ## Contributing and security
 

@@ -87,6 +87,10 @@ def render_gif_frame(
     state: State,
     viewer: int | None = 0,
     size: tuple[int, int] = (960, 540),
+    *,
+    show_legal: bool = True,
+    reward_override: np.ndarray | None = None,
+    winner_override: np.ndarray | None = None,
 ) -> Any:
     """Render one full-observability state as a Pillow RGB image."""
 
@@ -145,8 +149,19 @@ def render_gif_frame(
     penalties = np.asarray(state.penalties)
     scores = np.asarray(state.scores)
     ended = bool(state.terminated)
-    rewards = _terminal_rewards(state) if ended else None
-    legal = None if ended else np.asarray(host_legal)
+    rewards = (
+        np.asarray(reward_override)
+        if ended and reward_override is not None
+        else _terminal_rewards(state)
+        if ended
+        else None
+    )
+    winners = (
+        np.asarray(winner_override)
+        if winner_override is not None
+        else np.asarray(state.winner_mask)
+    )
+    legal = None if ended or not show_legal else np.asarray(host_legal)
     panel_centers = {
         "bottom": (480, 430),
         "top": (480, 72),
@@ -178,7 +193,7 @@ def render_gif_frame(
         line_height = max(name_box[3] - name_box[1], metric_box[3] - metric_box[1])
         lh = 2 * line_height + round(5 * scale) + 2 * pad
         fill = "#594915" if turn else "#09231bdc"
-        winner = ended and bool(np.asarray(state.winner_mask)[player])
+        winner = ended and bool(winners[player])
         outline = "#86efac" if winner else "#fbbf24" if turn else "#ffffff35"
         draw.rounded_rectangle(
             (
