@@ -42,14 +42,16 @@ moon-adjusted result.
 
 ## Reward
 
-All non-terminal transitions return `[0, 0, 0, 0]`. At termination:
+All non-terminal transitions return `[0, 0, 0, 0]`. For an ordinary deal at
+termination:
 
 ```text
 r_i = sum(scores_j for j != i) / 3 - scores_i
 ```
 
-This is zero-sum and preserves lower-is-better score ordering. A moon shooter
-receives `+18`; each opponent receives `-6`.
+This ordinary-deal reward is zero-sum and preserves lower-is-better score
+ordering. A moon shot instead uses a dedicated terminal signal: the shooter
+receives `0`, while each opponent receives `-18`.
 
 ## Configuration boundary
 

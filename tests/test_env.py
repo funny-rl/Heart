@@ -43,7 +43,7 @@ def test_reset_deals_every_card_once():
     assert bool(observation.action_mask[heart.TWO_OF_CLUBS])
 
 
-def test_full_deal_has_fixed_horizon_and_zero_sum_reward():
+def test_full_deal_has_fixed_horizon_and_terminal_reward_contract():
     env = heart.make()
     state, observation, rewards, terminated = play_to_end(env, jax.random.key(11))
     assert bool(terminated)
@@ -51,7 +51,10 @@ def test_full_deal_has_fixed_horizon_and_zero_sum_reward():
     assert int(state.trick_index) == 13
     assert int(state.hands.sum()) == 0
     assert int(state.penalties.sum()) == 18
-    assert np.isclose(float(rewards.sum()), 0.0, rtol=0.0, atol=1e-6)
+    if int(state.moon_shooter) < 0:
+        assert np.isclose(float(rewards.sum()), 0.0, rtol=0.0, atol=1e-6)
+    else:
+        assert np.isclose(float(rewards.sum()), -54.0, rtol=0.0, atol=1e-6)
     assert not bool(observation.action_mask.any())
     assert np.all(np.asarray(state.trick_history) >= 0)
 
@@ -173,9 +176,8 @@ def test_shooting_the_moon_is_a_solo_win():
         np.asarray(winners), np.asarray([True, False, False, False])
     )
     np.testing.assert_allclose(
-        np.asarray(rewards), np.asarray([18.0, -6.0, -6.0, -6.0])
+        np.asarray(rewards), np.asarray([0.0, -18.0, -18.0, -18.0])
     )
-    assert np.isclose(float(rewards.sum()), 0.0, rtol=0.0, atol=1e-6)
 
 
 @pytest.mark.parametrize("value", [True, False, 1.5, "5"])

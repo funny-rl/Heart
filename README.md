@@ -78,9 +78,10 @@ The lowest effective score wins. At termination, player `i` receives
 reward_i = mean(effective_scores_of_other_players) - effective_score_i
 ```
 
-The four rewards sum to zero mathematically (subject to ordinary float32
-rounding). Raw penalties do not sum to zero. For a moon shot, rewards are
-`[+18, -6, -6, -6]`, rotated to the shooter.
+For an ordinary deal, the four rewards sum to zero mathematically (subject to
+ordinary float32 rounding). Raw penalties do not sum to zero. A moon shot uses
+a dedicated winner-takes-all signal: the shooter receives `0` and each opponent
+receives `-18` (rotated to the shooter).
 
 ### `classic-v0`
 
@@ -290,10 +291,14 @@ policy = heart.make_rule_policy("medium")  # easy, medium, or hard
 action = policy(observation, key)
 ```
 
-- `easy` prefers low legal cards with randomized tie-breaking;
-- `medium` tries to duck tricks and discard Q♠ or hearts when void;
-- `hard` additionally reacts to a possible moon shooter and can pursue or
-  disrupt a moon attempt using public information.
+- `easy` ducks avoidable tricks and unloads dangerous point cards when void;
+- `medium` additionally pressures opponents with safe early spade leads;
+- `hard` also unloads high cards on the point-free opening trick and cashes a
+  high forced winner when acting last on a clean trick.
+
+Classic passing follows the same tier order: `easy` unloads intrinsically
+dangerous cards, `medium` manages Q♠ exposure and retains low-spade cover, and
+`hard` additionally creates a diamond void or, when 2♣ is not held, a club void.
 
 These are reproducible baselines, not optimal Hearts agents or measured human
 models. New policies should remain isolated from the environment transition.

@@ -18,6 +18,7 @@ from heart.classic import (
     PASS_RIGHT,
     PLAY,
     _new_deal_state,
+    _relative_rewards,
 )
 
 
@@ -66,6 +67,14 @@ def test_pass_action_table_is_exactly_thirteen_choose_three():
     np.testing.assert_array_equal(table, expected)
     assert np.all(table[:, 0] < table[:, 1])
     assert np.all(table[:, 1] < table[:, 2])
+
+
+def test_classic_keeps_normalized_relative_reward_for_moon_scores():
+    rewards = _relative_rewards(jnp.asarray([0, 26, 26, 26], dtype=jnp.int16))
+    np.testing.assert_allclose(
+        np.asarray(rewards), np.asarray([1.0, -1.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0])
+    )
+    assert np.isclose(float(rewards.sum()), 0.0, atol=1e-6)
 
 
 @pytest.mark.parametrize(
