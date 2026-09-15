@@ -17,4 +17,5 @@ separately version game semantics.
 - Easy, medium, and hard JIT-compatible rule-policy baselines.
 - Full-observability ANSI and HTML snapshots.
 - Portable interactive HTML match replays with timeline and speed controls.
+- Optional full-observability Pillow renderer for compact animated GIF previews.
 - Public contracts, contribution policies, citation metadata, and CI workflow.

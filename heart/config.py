@@ -20,4 +20,3 @@ class SingleDealRules:
 
 
 SINGLE = SingleDealRules()
-

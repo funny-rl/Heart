@@ -103,7 +103,9 @@ def test_jit_and_eager_step_match():
     action = choose_first_legal(observation)
     eager = env.step(state, action)
     compiled = jax.jit(env.step)(state, action)
-    for eager_leaf, compiled_leaf in zip(jax.tree.leaves(eager), jax.tree.leaves(compiled)):
+    for eager_leaf, compiled_leaf in zip(
+        jax.tree.leaves(eager), jax.tree.leaves(compiled)
+    ):
         np.testing.assert_array_equal(np.asarray(eager_leaf), np.asarray(compiled_leaf))
 
 
@@ -115,7 +117,6 @@ def test_vmap_runs_independent_games():
     next_states, _, _, _, infos = jax.jit(jax.vmap(env.step))(states, actions)
     np.testing.assert_array_equal(np.asarray(next_states.num_cards_played), np.ones(8))
     assert not np.asarray(infos.invalid_action).any()
-
 
 
 def test_shooting_the_moon_is_a_solo_win():

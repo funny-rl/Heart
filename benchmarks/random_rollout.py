@@ -25,8 +25,12 @@ def build_rollout(batch_size: int):
         def play(carry, step_key):
             states, observations = carry
             scores = jax.random.uniform(step_key, (batch_size, heart.NUM_CARDS))
-            actions = jnp.argmax(jnp.where(observations.action_mask, scores, -1.0), axis=-1)
-            states, observations, rewards, terminated, infos = batch_step(states, actions)
+            actions = jnp.argmax(
+                jnp.where(observations.action_mask, scores, -1.0), axis=-1
+            )
+            states, observations, rewards, terminated, infos = batch_step(
+                states, actions
+            )
             return (states, observations), (rewards, terminated, infos.invalid_action)
 
         return jax.lax.scan(play, (states, observations), step_keys)
@@ -61,4 +65,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

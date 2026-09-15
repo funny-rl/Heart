@@ -93,8 +93,8 @@ def render_html(state: State, viewer: int | None = 0) -> str:
         turn = " · 차례" if player == active and not ended else ""
         panels.append(
             f'<section class="{" ".join(classes)}">'
-            f'<strong>P{player}{identity}{turn}</strong><span>{score}점</span>'
-            f'<small>{_captured(state, player)}</small></section>'
+            f"<strong>P{player}{identity}{turn}</strong><span>{score}점</span>"
+            f"<small>{_captured(state, player)}</small></section>"
         )
 
         cards = [int(card) for card in np.flatnonzero(hands[player])]

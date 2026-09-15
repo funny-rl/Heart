@@ -38,7 +38,11 @@ def render_ansi(state: State, viewer: int | None = None) -> str:
     for player in range(NUM_PLAYERS):
         cards = np.flatnonzero(hands[player])
         contents = _cards_text(cards)
-        marker = "→" if player == int(state.active_player) and not bool(state.terminated) else " "
+        marker = (
+            "→"
+            if player == int(state.active_player) and not bool(state.terminated)
+            else " "
+        )
         identity = " (YOU)" if player == viewer else ""
         lines.append(f"{marker} P{player}{identity}: {contents}")
     if bool(state.terminated):

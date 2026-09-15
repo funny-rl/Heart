@@ -27,4 +27,3 @@ def test_card_index_validation():
         card_id(CLUBS, 13)
     with pytest.raises(ValueError):
         card_name(52)
-

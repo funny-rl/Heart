@@ -26,7 +26,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install
-        run: python -m pip install '.[test]'
+        run: python -m pip install '.[test,render]'
       - name: Compile
         run: python -m compileall -q heart
       - name: Test

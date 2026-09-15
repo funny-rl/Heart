@@ -82,9 +82,7 @@ def _hard_scores(observation: Observation, key: Array) -> Array:
     same_suit = played & (CARD_SUITS[safe_current] == led_suit)
     current_high = jnp.max(jnp.where(same_suit, CARD_RANKS[safe_current], -1))
     wins_now = (CARD_SUITS == led_suit) & (CARD_RANKS > current_high)
-    table_has_points = jnp.any(
-        jnp.where(played, POINT_CARD_MASK[safe_current], False)
-    )
+    table_has_points = jnp.any(jnp.where(played, POINT_CARD_MASK[safe_current], False))
 
     block_now = defending & (position == 3) & table_has_points & wins_now
     scores += jnp.where(block_now, 500.0 - ranks, 0.0)

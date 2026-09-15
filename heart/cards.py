@@ -35,7 +35,9 @@ QUEEN_OF_SPADES = card_id(SPADES, QUEEN)
 
 CARD_SUITS = jnp.repeat(jnp.arange(NUM_SUITS, dtype=jnp.int8), NUM_RANKS)
 CARD_RANKS = jnp.tile(jnp.arange(NUM_RANKS, dtype=jnp.int8), NUM_SUITS)
-SUIT_MASKS = jnp.arange(NUM_CARDS)[None, :] // NUM_RANKS == jnp.arange(NUM_SUITS)[:, None]
+SUIT_MASKS = (
+    jnp.arange(NUM_CARDS)[None, :] // NUM_RANKS == jnp.arange(NUM_SUITS)[:, None]
+)
 HEART_MASK = SUIT_MASKS[HEARTS]
 POINT_CARD_MASK = HEART_MASK.at[QUEEN_OF_SPADES].set(True)
 
@@ -54,4 +56,3 @@ def card_name(card: int) -> str:
     if not 0 <= card < NUM_CARDS:
         raise ValueError(f"card must be in [0, {NUM_CARDS}), got {card}")
     return CARD_NAMES[card]
-

@@ -82,9 +82,7 @@ def legal_action_mask(state: State, rules: SingleDealRules = SINGLE) -> Array:
 
     non_points = legal & ~POINT_CARD_MASK
     must_avoid_first_points = (
-        (state.trick_index == 0)
-        & rules.forbid_first_trick_points
-        & jnp.any(non_points)
+        (state.trick_index == 0) & rules.forbid_first_trick_points & jnp.any(non_points)
     )
     legal = jnp.where(must_avoid_first_points, non_points, legal)
 
@@ -131,9 +129,7 @@ def settle_deal(
     shot_moon = rules.shooting_the_moon & (penalties[candidate] == total_points)
     moon_shooter = jnp.where(shot_moon, candidate, -1).astype(jnp.int8)
     moon_scores = (
-        jnp.full((NUM_PLAYERS,), total_points, dtype=jnp.int16)
-        .at[candidate]
-        .set(0)
+        jnp.full((NUM_PLAYERS,), total_points, dtype=jnp.int16).at[candidate].set(0)
     )
     scores = jnp.where(shot_moon, moon_scores, penalties)
     winner_mask = scores == jnp.min(scores)
@@ -193,7 +189,9 @@ def _apply_legal_action(
             hands=hands,
             current_trick=jnp.full((NUM_PLAYERS,), -1, dtype=jnp.int8),
             trick_history=state.trick_history.at[state.trick_index].set(current_trick),
-            trick_winners=state.trick_winners.at[state.trick_index].set(winner.astype(jnp.int8)),
+            trick_winners=state.trick_winners.at[state.trick_index].set(
+                winner.astype(jnp.int8)
+            ),
             penalties=penalties,
             scores=scores,
             moon_shooter=jnp.where(deal_completed, moon_shooter, -1).astype(jnp.int8),
@@ -264,4 +262,3 @@ def step(
     next_state, rewards, info = jax.lax.cond(is_legal, apply, reject, operand=None)
     observation = observe(next_state, next_state.active_player, rules)
     return next_state, observation, rewards, next_state.terminated, info
-

@@ -49,5 +49,17 @@ Generated HTML can disclose every player's cards and may be large when many
 matches are retained. Treat it as evaluation output, not a training artifact;
 generated `heart-game*.html` and `heart-replay*.html` files are ignored by Git.
 
-HTML replay is the canonical inspectable output in 0.1.0. MP4/GIF encoding and
-pixel-level animation are not yet part of the public contract.
+HTML replay is the canonical inspectable output in 0.1.0. MP4 encoding and
+pixel-level card-motion animation are not yet part of the public contract.
+
+## Animated preview
+
+The optional Pillow renderer turns a short sequence of states into a looping
+full-observability GIF suitable for a README or experiment index:
+
+```python
+heart.save_gif(states, "heart-preview.gif", viewer=0, duration_ms=95)
+```
+
+Install it with `python -m pip install -e '.[render]'`. GIF generation is a
+host-only convenience surface and is not imported from Pillow until invoked.

@@ -10,6 +10,10 @@
 
 [Why HEART](#why-heart) · [Rules](#simplest-v0) · [Install](#installation) · [Quickstart](#quickstart) · [Batching](#batched-rollouts) · [Rendering](#rendering-and-replays) · [Contracts](#core-contracts) · [Documentation](#documentation)
 
+<img src="docs/assets/rendering/simplest-v0-preview.gif" alt="Five-second full-observability HEART simplest-v0 match preview" width="760">
+
+<sub>HEART 0.1.0 · `simplest-v0` · seed 42 · four `medium` reference policies · 53 full-observability states rendered in approximately five seconds.</sub>
+
 </div>
 
 ---
@@ -184,6 +188,13 @@ Render one unbatched state as text or a standalone browser page:
 ```python
 print(heart.render_ansi(state, viewer=0))
 heart.save_html(state, "heart-game.html", viewer=0)
+```
+
+Create a compact animated preview with the optional rendering dependency:
+
+```bash
+python -m pip install -e '.[render]'
+python examples/render_gif.py --output heart-preview.gif
 ```
 
 Record the reset state and all 52 successor states to create an interactive

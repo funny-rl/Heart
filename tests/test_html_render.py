@@ -51,9 +51,7 @@ def test_replay_html_contains_frames_and_playback_controls(tmp_path):
         state, observation, *_ = env.step(state, action)
         states.append(state)
 
-    output = heart.save_replay_html(
-        states, tmp_path / "replay.html", viewer=2, fps=3.0
-    )
+    output = heart.save_replay_html(states, tmp_path / "replay.html", viewer=2, fps=3.0)
     rendered = output.read_text(encoding="utf-8")
     assert '<iframe id="stage"' in rendered
     assert 'id="timeline"' in rendered

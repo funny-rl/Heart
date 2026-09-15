@@ -55,4 +55,3 @@ class Info(NamedTuple):
     points_won: Array
     moon_shooter: Array
     winner_mask: Array
-

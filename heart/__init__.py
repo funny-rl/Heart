@@ -11,6 +11,7 @@ from heart.cards import (
     card_name,
 )
 from heart.env import AVAILABLE_MODES, SIMPLEST_V0, HeartEnv, make
+from heart.gif_render import render_gif_frame, save_gif
 from heart.html_render import (
     render_html,
     render_replay_html,
@@ -38,8 +39,10 @@ __all__ = [
     "make",
     "make_rule_policy",
     "render_ansi",
+    "render_gif_frame",
     "render_html",
     "render_replay_html",
+    "save_gif",
     "save_html",
     "save_replay_html",
 ]
