@@ -54,7 +54,7 @@ def test_full_deal_has_fixed_horizon_and_terminal_reward_contract():
     if int(state.moon_shooter) < 0:
         assert np.isclose(float(rewards.sum()), 0.0, rtol=0.0, atol=1e-6)
     else:
-        assert np.isclose(float(rewards.sum()), -54.0, rtol=0.0, atol=1e-6)
+        assert np.isclose(float(rewards.sum()), -3.0, rtol=0.0, atol=1e-6)
     assert not bool(observation.action_mask.any())
     assert np.all(np.asarray(state.trick_history) >= 0)
 
@@ -175,9 +175,27 @@ def test_shooting_the_moon_is_a_solo_win():
     np.testing.assert_array_equal(
         np.asarray(winners), np.asarray([True, False, False, False])
     )
-    np.testing.assert_allclose(
-        np.asarray(rewards), np.asarray([0.0, -18.0, -18.0, -18.0])
+    np.testing.assert_allclose(np.asarray(rewards), np.asarray([0.0, -1.0, -1.0, -1.0]))
+
+
+def test_ordinary_reward_is_normalized_by_configured_total_points():
+    rules = heart.make(queen_of_spades_penalty=13).rules
+    scores, shooter, _, rewards = settle_deal(
+        jnp.asarray([0, 5, 8, 13], dtype=jnp.int16), rules
     )
+    assert int(shooter) == -1
+    np.testing.assert_array_equal(np.asarray(scores), [0, 5, 8, 13])
+    expected = np.asarray([26 / 3, 2, -2, -26 / 3], dtype=np.float32) / 26
+    np.testing.assert_allclose(np.asarray(rewards), expected, rtol=1e-6)
+
+
+def test_custom_queen_penalty_normalizes_moon_opponents_to_minus_one():
+    rules = heart.make(queen_of_spades_penalty=9).rules
+    _, shooter, _, rewards = settle_deal(
+        jnp.asarray([0, 22, 0, 0], dtype=jnp.int16), rules
+    )
+    assert int(shooter) == 1
+    np.testing.assert_array_equal(np.asarray(rewards), [-1.0, 0.0, -1.0, -1.0])
 
 
 @pytest.mark.parametrize("value", [True, False, 1.5, "5"])

@@ -46,12 +46,14 @@ All non-terminal transitions return `[0, 0, 0, 0]`. For an ordinary deal at
 termination:
 
 ```text
-r_i = sum(scores_j for j != i) / 3 - scores_i
+r_i = (sum(scores_j for j != i) / 3 - scores_i) / 18
 ```
 
-This ordinary-deal reward is zero-sum and preserves lower-is-better score
-ordering. A moon shot instead uses a dedicated terminal signal: the shooter
-receives `0`, while each opponent receives `-18`.
+The divisor is the configured total point value (`13 + queen_of_spades_penalty`),
+so it changes consistently for rule overrides. This ordinary-deal reward is
+zero-sum and preserves lower-is-better score ordering. A moon shot instead uses
+a dedicated terminal signal: the shooter receives `0`, while each opponent
+receives `-1`.
 
 ## Configuration boundary
 

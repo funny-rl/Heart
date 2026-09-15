@@ -160,9 +160,13 @@ def settle_deal(
     moon_rewards = jnp.where(
         jnp.arange(NUM_PLAYERS) == candidate,
         0.0,
-        -jnp.asarray(total_points, dtype=jnp.float32),
+        -1.0,
     )
-    rewards = jnp.where(shot_moon, moon_rewards, relative_rewards(scores))
+    rewards = jnp.where(
+        shot_moon,
+        moon_rewards,
+        relative_rewards(scores, normalizer=float(total_points)),
+    )
     return scores, moon_shooter, winner_mask, rewards
 
 

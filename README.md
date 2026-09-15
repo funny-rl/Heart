@@ -75,13 +75,14 @@ learning, evaluation, and experiment tracking.
 The lowest effective score wins. At termination, player `i` receives
 
 ```text
-reward_i = mean(effective_scores_of_other_players) - effective_score_i
+reward_i = (mean(effective_scores_of_other_players) - effective_score_i) / 18
 ```
 
 For an ordinary deal, the four rewards sum to zero mathematically (subject to
-ordinary float32 rounding). Raw penalties do not sum to zero. A moon shot uses
-a dedicated winner-takes-all signal: the shooter receives `0` and each opponent
-receives `-18` (rotated to the shooter).
+ordinary float32 rounding). Raw penalties do not sum to zero. The denominator is
+the configured total point value (`13 + queen_of_spades_penalty`). A moon shot
+uses a dedicated winner-takes-all signal: the shooter receives `0` and each
+opponent receives `-1` (rotated to the shooter).
 
 ### `classic-v0`
 
