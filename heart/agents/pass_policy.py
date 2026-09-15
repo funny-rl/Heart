@@ -8,7 +8,16 @@ import jax
 import jax.numpy as jnp
 from jax import Array
 
-from heart.cards import CARD_RANKS, CARD_SUITS, HEARTS, QUEEN_OF_SPADES
+from heart.cards import (
+    CARD_RANKS,
+    CARD_SUITS,
+    CLUBS,
+    DIAMONDS,
+    HEARTS,
+    QUEEN_OF_SPADES,
+    SPADES,
+    TWO_OF_CLUBS,
+)
 from heart.classic import NUM_PASS_ACTIONS, PASS_COMBINATIONS, ClassicObservation
 
 PASS_DIFFICULTIES = ("easy", "medium", "hard")
@@ -37,30 +46,56 @@ class RulePassPolicy:
         suits = CARD_SUITS[hand_cards]
         combos = PASS_COMBINATIONS.astype(jnp.int32)
 
-        if self.difficulty == "easy":
-            logits = jax.random.uniform(key, (NUM_PASS_ACTIONS,))
-        else:
-            danger = ranks
-            danger += jnp.where(hand_cards == QUEEN_OF_SPADES, 30.0, 0.0)
-            danger += jnp.where(
-                (suits == 2) & (ranks >= 10),
-                8.0,
-                0.0,
+        # easy preserves the former medium baseline: unload intrinsically
+        # dangerous cards without reasoning about the remaining suit shape.
+        danger = ranks
+        danger += jnp.where(hand_cards == QUEEN_OF_SPADES, 30.0, 0.0)
+        danger += jnp.where((suits == SPADES) & (ranks >= 10), 8.0, 0.0)
+        danger += jnp.where(suits == HEARTS, 3.0 + ranks / 4.0, 0.0)
+
+        if self.difficulty != "easy":
+            spade_count = jnp.sum(suits == SPADES)
+            owns_queen = observation.game.hand[QUEEN_OF_SPADES]
+            queen_is_exposed = owns_queen & (spade_count <= 4)
+            queen_adjustment = jnp.where(queen_is_exposed, 50.0, -55.0)
+            danger += jnp.where(hand_cards == QUEEN_OF_SPADES, queen_adjustment, 0.0)
+
+            # Passing A/K spades is most valuable to the right or across.  Low
+            # spades are retained as cover for a held Q/A/K.
+            direction_weight = jnp.asarray((1.0, 1.15, 1.1, 0.0))[
+                observation.pass_direction
+            ]
+            high_spade = (suits == SPADES) & (ranks >= 11)
+            danger += jnp.where(high_spade, 16.0 * direction_weight, 0.0)
+
+        selected_suits = suits[combos]
+        logits = jnp.sum(danger[combos], axis=1)
+        if self.difficulty != "easy":
+            selected_low_spades = jnp.sum(
+                (selected_suits == SPADES) & (ranks[combos] <= 7), axis=1
             )
-            danger += jnp.where(suits == HEARTS, 3.0 + ranks / 4.0, 0.0)
-            logits = jnp.sum(danger[combos], axis=1)
-            if self.difficulty == "hard":
-                suit_counts = jnp.bincount(suits, length=4)
-                selected_suits = suits[combos]
-                selected_counts = jnp.stack(
-                    [jnp.sum(selected_suits == suit, axis=1) for suit in range(4)],
-                    axis=1,
-                )
-                creates_void = (suit_counts[None, :] > 0) & (
-                    selected_counts == suit_counts[None, :]
-                )
-                logits += 12.0 * jnp.sum(creates_void, axis=1)
-            logits += jax.random.uniform(key, (NUM_PASS_ACTIONS,), maxval=1e-3)
+            needs_spade_cover = observation.game.hand[QUEEN_OF_SPADES] | jnp.any(
+                (suits == SPADES) & (ranks >= 11)
+            )
+            logits -= jnp.where(needs_spade_cover, 9.0 * selected_low_spades, 0.0)
+
+        if self.difficulty == "hard":
+            suit_counts = jnp.bincount(suits, length=4)
+            selected_counts = jnp.stack(
+                [jnp.sum(selected_suits == suit, axis=1) for suit in range(4)],
+                axis=1,
+            )
+            creates_void = (suit_counts[None, :] > 0) & (
+                selected_counts == suit_counts[None, :]
+            )
+            # Diamonds are the preferred safe void.  Clubs receive a smaller
+            # bonus only when passing them cannot give away the forced 2C lead.
+            logits += 13.0 * creates_void[:, DIAMONDS]
+            logits += (
+                8.0 * creates_void[:, CLUBS] * (~observation.game.hand[TWO_OF_CLUBS])
+            )
+
+        logits += jax.random.uniform(key, (NUM_PASS_ACTIONS,), maxval=1e-3)
 
         masked = jnp.where(observation.pass_action_mask, logits, -jnp.inf)
         return jnp.argmax(masked).astype(jnp.int32)

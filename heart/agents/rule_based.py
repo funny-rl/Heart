@@ -25,12 +25,7 @@ def _random_tiebreak(key: Array) -> Array:
     return jax.random.uniform(key, (NUM_CARDS,), minval=0.0, maxval=1e-3)
 
 
-def _easy_scores(observation: Observation, key: Array) -> Array:
-    del observation
-    return -CARD_RANKS.astype(jnp.float32) + _random_tiebreak(key)
-
-
-def _medium_scores(observation: Observation, key: Array) -> Array:
+def _base_scores(observation: Observation, key: Array) -> Array:
     cards = jnp.arange(NUM_CARDS)
     ranks = CARD_RANKS.astype(jnp.float32)
     position = observation.trick_position
@@ -62,43 +57,49 @@ def _medium_scores(observation: Observation, key: Array) -> Array:
     return scores + _random_tiebreak(key)
 
 
-def _hard_scores(observation: Observation, key: Array) -> Array:
-    scores = _medium_scores(observation, key)
+def _spade_pressure_scores(observation: Observation, key: Array) -> Array:
+    scores = _base_scores(observation, key)
     ranks = CARD_RANKS.astype(jnp.float32)
-    position = observation.trick_position
-    leading = position == 0
-
-    total_taken = jnp.sum(observation.penalties)
-    runner = jnp.argmax(observation.penalties)
-    runner_points = observation.penalties[runner]
-    moon_threat = (total_taken > 0) & (runner_points == total_taken)
-    defending = moon_threat & (runner != observation.player)
-    shooting = moon_threat & (runner == observation.player)
-
-    led_card = jnp.maximum(observation.current_trick[0].astype(jnp.int32), 0)
-    led_suit = CARD_SUITS[led_card]
-    safe_current = jnp.maximum(observation.current_trick.astype(jnp.int32), 0)
-    played = observation.current_trick >= 0
-    same_suit = played & (CARD_SUITS[safe_current] == led_suit)
-    current_high = jnp.max(jnp.where(same_suit, CARD_RANKS[safe_current], -1))
-    wins_now = (CARD_SUITS == led_suit) & (CARD_RANKS > current_high)
-    table_has_points = jnp.any(jnp.where(played, POINT_CARD_MASK[safe_current], False))
-
-    block_now = defending & (position == 3) & table_has_points & wins_now
-    scores += jnp.where(block_now, 500.0 - ranks, 0.0)
-
-    current_winner_offset = jnp.argmax(
-        jnp.where(same_suit, CARD_RANKS[safe_current], -1)
+    history = observation.trick_history.reshape(-1)
+    queen_seen = jnp.any(history == QUEEN_OF_SPADES) | jnp.any(
+        observation.current_trick == QUEEN_OF_SPADES
     )
-    current_winner = (observation.leader + current_winner_offset) % 4
-    follows = CARD_SUITS == led_suit
-    void_in_led = (~leading) & ~jnp.any(observation.action_mask & follows)
-    spoil = defending & void_in_led & (current_winner != runner) & POINT_CARD_MASK
-    scores += jnp.where(spoil, 400.0 + ranks, 0.0)
+    pressure = (
+        (observation.trick_position == 0)
+        & (observation.trick_index >= 1)
+        & (observation.trick_index <= 5)
+        & ~queen_seen
+        & ~observation.hand[QUEEN_OF_SPADES]
+        & (CARD_SUITS == 2)
+        & (CARD_RANKS <= 9)
+    )
+    has_pressure = jnp.any(observation.action_mask & pressure)
+    scores += jnp.where(has_pressure & pressure, 250.0 + ranks, 0.0)
+    return scores
 
-    pursue = shooting & (~leading) & table_has_points & wins_now
-    scores += jnp.where(pursue, 350.0 + ranks, 0.0)
-    scores += jnp.where(shooting & leading, 2.0 * ranks, 0.0)
+
+def _hard_scores(observation: Observation, key: Array) -> Array:
+    scores = _spade_pressure_scores(observation, key)
+    ranks = CARD_RANKS.astype(jnp.float32)
+    leading = observation.trick_position == 0
+    current = observation.current_trick
+    safe_current = jnp.clip(current.astype(jnp.int32), 0, NUM_CARDS - 1)
+    current_played = current >= 0
+    led_card = jnp.maximum(current[0].astype(jnp.int32), 0)
+    led_suit = CARD_SUITS[led_card]
+    follows = CARD_SUITS == led_suit
+    same_suit = current_played & (CARD_SUITS[safe_current] == led_suit)
+    current_high = jnp.max(jnp.where(same_suit, CARD_RANKS[safe_current], -1))
+    losing = follows & (CARD_RANKS < current_high)
+    can_lose = jnp.any(observation.action_mask & losing)
+    table_has_points = jnp.any(
+        jnp.where(current_played, POINT_CARD_MASK[safe_current], False)
+    )
+    scores += jnp.where((observation.trick_index == 0) & ~leading, 300.0 + ranks, 0.0)
+    forced_clean = (
+        (observation.trick_position == 3) & ~table_has_points & ~can_lose & follows
+    )
+    scores += jnp.where(forced_clean, 300.0 + ranks, 0.0)
     return scores
 
 
@@ -116,9 +117,9 @@ class RulePolicy:
 
     def __call__(self, observation: Observation, key: Array) -> Array:
         if self.difficulty == "easy":
-            scores = _easy_scores(observation, key)
+            scores = _base_scores(observation, key)
         elif self.difficulty == "medium":
-            scores = _medium_scores(observation, key)
+            scores = _spade_pressure_scores(observation, key)
         else:
             scores = _hard_scores(observation, key)
         masked = jnp.where(observation.action_mask, scores, -jnp.inf)
