@@ -3,29 +3,30 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
+from jax import device_get
 
 from heart.cards import (
     CARD_NAMES,
-    CARD_RANKS,
-    CARD_SUITS,
     HEARTS,
     NUM_PLAYERS,
     QUEEN_OF_SPADES,
     RANK_NAMES,
     SUIT_SYMBOLS,
 )
+from heart.render import _visible_trick
 from heart.types import State
 
 _SEATS = ("bottom", "left", "top", "right")
 
 
 def _face(card: int, legal: bool = False, small: bool = False) -> str:
-    suit = int(CARD_SUITS[card])
-    rank = RANK_NAMES[int(CARD_RANKS[card])]
+    suit, rank_index = divmod(card, 13)
+    rank = RANK_NAMES[rank_index]
     symbol = SUIT_SYMBOLS[suit]
     classes = ["card", "red" if suit in (1, HEARTS) else "black"]
     if legal:
@@ -46,7 +47,7 @@ def _captured(state: State, player: int) -> str:
     for trick, winner in zip(history, winners):
         if int(winner) == player:
             cards.extend(int(card) for card in trick if int(card) >= 0)
-    hearts = sum(int(CARD_SUITS[card]) == HEARTS for card in cards)
+    hearts = sum(card // 13 == HEARTS for card in cards)
     queen = '<span class="q-token">Q♠</span>' if QUEEN_OF_SPADES in cards else ""
     return f'<span class="h-token">♥ {hearts}</span>{queen}'
 
@@ -66,6 +67,9 @@ def render_html(state: State, viewer: int | None = 0) -> str:
     if viewer is not None and not 0 <= viewer < NUM_PLAYERS:
         raise ValueError(f"viewer must be in [0, {NUM_PLAYERS}) or None")
 
+    from heart.rules import legal_action_mask
+
+    state, host_legal_mask = device_get((state, legal_action_mask(state)))
     anchor = 0 if viewer is None else viewer
     hands = np.asarray(state.hands)
     penalties = np.asarray(state.penalties)
@@ -73,11 +77,7 @@ def render_html(state: State, viewer: int | None = 0) -> str:
     active = int(state.active_player)
     ended = bool(state.terminated)
 
-    legal_mask = None
-    if not ended:
-        from heart.rules import legal_action_mask
-
-        legal_mask = np.asarray(legal_action_mask(state))
+    legal_mask = None if ended else np.asarray(host_legal_mask)
 
     panels: list[str] = []
     hands_html: list[str] = []
@@ -117,8 +117,8 @@ def render_html(state: State, viewer: int | None = 0) -> str:
         )
 
     trick_html: list[str] = []
-    leader = int(state.leader)
-    for offset, raw_card in enumerate(np.asarray(state.current_trick)):
+    visible_trick, leader, previous_trick = _visible_trick(state)
+    for offset, raw_card in enumerate(visible_trick):
         card = int(raw_card)
         if card < 0:
             continue
@@ -138,6 +138,7 @@ def render_html(state: State, viewer: int | None = 0) -> str:
 
     trick_number = min(int(state.trick_index) + 1, 13)
     heart_state = "하트 브로큰" if bool(state.hearts_broken) else "하트 잠김"
+    trick_label = "직전 트릭" if previous_trick else "현재 트릭"
 
     return f"""<!doctype html>
 <html lang="ko">
@@ -166,7 +167,7 @@ body{{margin:0;min-width:320px;min-height:100vh;display:grid;place-items:center;
 <main class="table" aria-label="HEART 카드 테이블">
 {"".join(panels)}
 {"".join(hands_html)}
-<div class="trick-zone" aria-label="현재 트릭">{"".join(trick_html)}</div>
+<div class="trick-zone" aria-label="{trick_label}">{"".join(trick_html)}</div>
 </main></div></body></html>"""
 
 
@@ -185,13 +186,13 @@ def render_replay_html(
 
     if not states:
         raise ValueError("states must contain at least one game state")
-    if fps <= 0:
-        raise ValueError("fps must be positive")
+    if not math.isfinite(fps) or not 0 < fps <= 1000:
+        raise ValueError("fps must be finite and in (0, 1000]")
 
     frames = [render_html(state, viewer) for state in states]
     # Escaping '<' prevents a future renderer string from ending this script tag.
     frames_json = json.dumps(frames, ensure_ascii=False).replace("<", "\\u003c")
-    interval = round(1000.0 / fps)
+    interval = max(1, round(1000.0 / fps))
     return f"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

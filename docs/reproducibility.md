@@ -23,13 +23,34 @@ dimensions and `jax.jit` for compilation. A typical fixed deal uses
 `jax.lax.scan` for 52 actions. Do not introduce host callbacks, rendering, or
 file I/O into the compiled scan.
 
+Keep actions as `jnp.int32` inside long-lived compiled rollout boundaries.
+Changing an argument's dtype or shape changes JAX's abstract signature and can
+trigger a separate compilation.
+
+The current dense state layout is deliberate: it keeps rules and replay data
+easy to audit. Bit-packed hands or compressed history should be considered only
+when a measured target workload is limited by state memory; such a change is a
+public-state compatibility decision, not a default micro-optimization.
+
 ## Benchmark receipt
 
-Run the included random legal-policy harness:
+The harness separates environment work from policy work and safe validation
+from the trusted fast path:
 
 ```bash
-python benchmarks/random_rollout.py --batch-size 4096 --runs 10
+python benchmarks/random_rollout.py --batch-size 4096 --runs 10 \
+  --workload engine-only --step-mode safe
+python benchmarks/random_rollout.py --batch-size 4096 --runs 10 \
+  --workload engine-only --step-mode trusted
+python benchmarks/random_rollout.py --batch-size 4096 --runs 10 \
+  --workload policy-inclusive --policy hard --step-mode safe
 ```
+
+`engine-only` uses deterministic first-legal actions and excludes policy PRNG.
+`policy-inclusive` accepts `random`, `easy`, `medium`, or `hard`. Both return a
+small final-state checksum instead of materializing a 52-step output trajectory;
+all timed dispatches are explicitly synchronized. Batch size and run count must
+be positive.
 
 Report both deals/s and card-actions/s together with:
 
@@ -37,6 +58,7 @@ Report both deals/s and card-actions/s together with:
 commit:
 HEART/JAX/jaxlib versions:
 hardware and backend:
+workload, policy, and step mode:
 batch size and runs:
 compile/warm-up excluded: yes/no
 command:

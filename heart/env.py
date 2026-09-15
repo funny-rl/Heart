@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from jax import Array
 
 from heart.config import SINGLE, SingleDealRules
-from heart.rules import legal_action_mask, observe, reset, step
+from heart.rules import legal_action_mask, observe, reset, step, step_unchecked
 from heart.types import Info, Observation, State
 
 SIMPLEST_V0 = "simplest-v0"
@@ -28,6 +28,13 @@ class HeartEnv:
         self, state: State, action: Array | int
     ) -> tuple[State, Observation, Array, Array, Info]:
         return step(state, action, self.rules)
+
+    def step_unchecked(
+        self, state: State, action: Array | int
+    ) -> tuple[State, Observation, Array, Array, Info]:
+        """Fast path for an integer action already selected from the mask."""
+
+        return step_unchecked(state, action, self.rules)
 
     def observe(self, state: State, player: Array | int) -> Observation:
         return observe(state, player, self.rules)

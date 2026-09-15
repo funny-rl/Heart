@@ -72,8 +72,9 @@ The lowest effective score wins. At termination, player `i` receives
 reward_i = mean(effective_scores_of_other_players) - effective_score_i
 ```
 
-The four rewards sum to zero. For a moon shot they are `[+18, -6, -6, -6]`,
-rotated to the shooter.
+The four rewards sum to zero mathematically (subject to ordinary float32
+rounding). Raw penalties do not sum to zero. For a moon shot, rewards are
+`[+18, -6, -6, -6]`, rotated to the shooter.
 
 ## Installation
 
@@ -121,9 +122,9 @@ print("effective scores:", state.scores)
 print("terminal rewards:", rewards)
 ```
 
-An action is a card ID in `[0, 52)`. Invalid actions leave state unchanged,
-return zero rewards, and set `info.invalid_action=True`; callers should treat
-that result as a policy error.
+An action is an integer card ID in `[0, 52)`. Floats, booleans, out-of-range
+IDs, masked cards, and post-terminal actions are invalid: they leave state
+unchanged, return zero rewards, and set `info.invalid_action=True`.
 
 ## Batched rollouts
 
@@ -146,16 +147,29 @@ actions = jnp.argmax(observations.action_mask, axis=-1)
 states, observations, rewards, terminated, infos = batch_step(states, actions)
 ```
 
+When actions have already been selected from the matching authoritative mask,
+trusted training code may use `env.step_unchecked`. It skips current-action
+validation but keeps the same transition and next observation:
+
+```python
+trusted_batch_step = jax.jit(jax.vmap(env.step_unchecked))
+```
+
+Passing an unvalidated, non-integer, out-of-range, or illegal action to this
+fast path has undefined behavior. Keep `env.step` at untrusted boundaries.
+
 Only the active player's action is supplied for each environment. See
 [`benchmarks/random_rollout.py`](benchmarks/random_rollout.py) for a compiled
-52-action throughput harness. Performance claims should report the source
-revision, backend, hardware, batch size, warm-up, and measured run count.
+52-action throughput harness. Use `--workload engine-only|policy-inclusive` to
+separate transition and policy cost, and `--step-mode safe|trusted` to measure
+validation overhead. Performance claims should report the source revision,
+backend, hardware, batch size, warm-up, and measured run count.
 
 ## Core contracts
 
 | Surface | Entry point | Boundary |
 | --- | --- | --- |
-| Environment | `heart.make`, `HeartEnv.reset`, `HeartEnv.step` | Stateless handle over immutable state and explicit PRNG keys |
+| Environment | `heart.make`, `HeartEnv.reset`, `HeartEnv.step`, `HeartEnv.step_unchecked` | Safe public boundary plus opt-in trusted rollout path over immutable state |
 | State and observation | [`docs/environment.md`](docs/environment.md) | Omniscient environment state versus player-private policy input |
 | Rules and reward | [`docs/rules.md`](docs/rules.md) | Stable `simplest-v0` legality, scoring, termination, and reward semantics |
 | Reference policies | `heart.make_rule_policy` | Mask-respecting, seeded baselines; not claims of optimal play |

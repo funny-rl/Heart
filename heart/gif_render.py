@@ -7,15 +7,15 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from jax import device_get
 
 from heart.cards import (
-    CARD_RANKS,
-    CARD_SUITS,
     HEARTS,
     NUM_PLAYERS,
     RANK_NAMES,
     SUIT_SYMBOLS,
 )
+from heart.render import _visible_trick
 from heart.rules import legal_action_mask
 from heart.types import State
 
@@ -61,8 +61,8 @@ def _card(
 ) -> None:
     x, y = xy
     width, height = size
-    suit = int(CARD_SUITS[card])
-    rank = RANK_NAMES[int(CARD_RANKS[card])]
+    suit, rank_index = divmod(card, 13)
+    rank = RANK_NAMES[rank_index]
     symbol = SUIT_SYMBOLS[suit]
     color = "#d91f45" if suit in (1, HEARTS) else "#111827"
     outline = "#fbbf24" if legal else "#cbd5e1"
@@ -95,14 +95,24 @@ def render_gif_frame(
     if size[0] < 640 or size[1] < 360:
         raise ValueError("GIF frame size must be at least 640x360")
 
+    state, host_legal = device_get((state, legal_action_mask(state)))
     image, image_draw, image_font = _pillow()
     canvas = image.new("RGB", size, "#11131a")
     draw = image_draw.Draw(canvas)
     width, height = size
     scale = min(width / 960, height / 540)
+    offset_x = (width - 960 * scale) / 2
+    offset_y = (height - 540 * scale) / 2
+
+    def sx(value: float) -> int:
+        return round(offset_x + value * scale)
+
+    def sy(value: float) -> int:
+        return round(offset_y + value * scale)
 
     def box(values: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
-        return tuple(round(value * scale) for value in values)
+        x1, y1, x2, y2 = values
+        return sx(x1), sy(y1), sx(x2), sy(y2)
 
     title_font = _font(image_font, round(24 * scale), bold=True)
     ui_font = _font(image_font, round(14 * scale), bold=True)
@@ -118,7 +128,7 @@ def render_gif_frame(
         box((210, 102, 750, 474)), outline="#ffffff18", width=max(1, round(scale))
     )
     draw.text(
-        (round(24 * scale), round(10 * scale)),
+        (sx(24), sy(10)),
         "♥ HEART",
         font=title_font,
         fill="#f8fafc",
@@ -128,15 +138,13 @@ def render_gif_frame(
         if bool(state.terminated)
         else f"TRICK {min(int(state.trick_index) + 1, 13)}/13  ·  ACTION {int(state.num_cards_played)}/52"
     )
-    draw.text(
-        (round(730 * scale), round(15 * scale)), status, font=small_font, fill="#cbd5e1"
-    )
+    draw.text((sx(730), sy(15)), status, font=small_font, fill="#cbd5e1")
 
     hands = np.asarray(state.hands)
     active = int(state.active_player)
     penalties = np.asarray(state.penalties)
     scores = np.asarray(state.scores)
-    legal = None if bool(state.terminated) else np.asarray(legal_action_mask(state))
+    legal = None if bool(state.terminated) else np.asarray(host_legal)
     panel_centers = {
         "bottom": (480, 430),
         "top": (480, 72),
@@ -167,19 +175,17 @@ def render_gif_frame(
         outline = "#fbbf24" if turn else "#ffffff35"
         draw.rounded_rectangle(
             (
-                round(px * scale - lw / 2),
-                round(py * scale - lh / 2),
-                round(px * scale + lw / 2),
-                round(py * scale + lh / 2),
+                round(sx(px) - lw / 2),
+                round(sy(py) - lh / 2),
+                round(sx(px) + lw / 2),
+                round(sy(py) + lh / 2),
             ),
             radius=round(8 * scale),
             fill=fill,
             outline=outline,
             width=max(1, round(2 * scale)),
         )
-        _center(
-            draw, (round(px * scale), round(py * scale)), label, small_font, "#f8fafc"
-        )
+        _center(draw, (sx(px), sy(py)), label, small_font, "#f8fafc")
 
         cards = [int(card) for card in np.flatnonzero(hands[player])]
         ox, oy = hand_origins[seat]
@@ -187,12 +193,12 @@ def render_gif_frame(
             card_size = (round(42 * scale), round(59 * scale))
             gap = round((30 if seat == "bottom" else 25) * scale)
             total = card_size[0] + gap * max(len(cards) - 1, 0)
-            start_x = round(width / 2 - total / 2)
+            start_x = round(sx(480) - total / 2)
             for index, card in enumerate(cards):
                 _card(
                     draw,
                     card,
-                    (start_x + index * gap, round(oy * scale)),
+                    (start_x + index * gap, sy(oy)),
                     card_size,
                     (card_font, suit_font),
                     legal=player == active and legal is not None and bool(legal[card]),
@@ -201,12 +207,12 @@ def render_gif_frame(
             card_size = (round(34 * scale), round(48 * scale))
             gap = round(17 * scale)
             total = card_size[1] + gap * max(len(cards) - 1, 0)
-            start_y = round(height / 2 - total / 2 + 20 * scale)
+            start_y = round(sy(270) - total / 2 + 20 * scale)
             for index, card in enumerate(cards):
                 _card(
                     draw,
                     card,
-                    (round(ox * scale), start_y + index * gap),
+                    (sx(ox), start_y + index * gap),
                     card_size,
                     (tiny_card_font, tiny_suit_font),
                     legal=player == active and legal is not None and bool(legal[card]),
@@ -218,8 +224,8 @@ def render_gif_frame(
         "left": (378, 281),
         "right": (540, 281),
     }
-    leader = int(state.leader)
-    for offset, raw_card in enumerate(np.asarray(state.current_trick)):
+    visible_trick, leader, _ = _visible_trick(state)
+    for offset, raw_card in enumerate(visible_trick):
         card = int(raw_card)
         if card < 0:
             continue
@@ -228,7 +234,7 @@ def render_gif_frame(
         _card(
             draw,
             card,
-            (round(tx * scale), round(ty * scale)),
+            (sx(tx), sy(ty)),
             (round(43 * scale), round(60 * scale)),
             (card_font, suit_font),
         )
@@ -243,9 +249,7 @@ def render_gif_frame(
             outline="#86efac",
             width=2,
         )
-        _center(
-            draw, (round(480 * scale), round(303 * scale)), result, ui_font, "#86efac"
-        )
+        _center(draw, (sx(480), sy(303)), result, ui_font, "#86efac")
 
     return canvas
 
@@ -263,8 +267,10 @@ def save_gif(
         raise ValueError("states must contain at least one game state")
     if duration_ms <= 0:
         raise ValueError("duration_ms must be positive")
-    frames = [render_gif_frame(state, viewer, size) for state in states]
     output = Path(path).expanduser().resolve()
+    if output.suffix.lower() != ".gif":
+        raise ValueError("GIF output path must use the .gif suffix")
+    frames = [render_gif_frame(state, viewer, size) for state in states]
     frames[0].save(
         output,
         save_all=True,
@@ -273,5 +279,6 @@ def save_gif(
         loop=0,
         optimize=True,
         disposal=2,
+        format="GIF",
     )
     return output

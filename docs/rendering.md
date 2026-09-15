@@ -25,7 +25,10 @@ path = heart.save_html(state, "heart-game.html", viewer=0)
 
 The HTML is a complete dependency-free document. It shows all hands, current
 trick placement, active player, legal cards for the active player, captured
-hearts and Q♠, scores, winner state, and moon-shot state.
+hearts and Q♠, scores, winner state, and moon-shot state. Immediately after a
+trick completes, it reconstructs and displays the completed four-card trick
+with the original player seats; a newly started trick takes precedence after
+its first card.
 
 ## Interactive replay
 
@@ -42,8 +45,8 @@ heart.save_replay_html(states, "heart-replay.html", viewer=0, fps=2.0)
 
 A complete canonical replay contains 53 frames. The portable HTML embeds every
 snapshot and offers play/pause, previous/next frame, a range timeline, speed
-selection, and space/arrow keyboard controls. `fps` must be positive and sets
-the base frame rate.
+selection, and space/arrow keyboard controls. `fps` must be finite and lie in
+`(0, 1000]`; the resulting timer interval is never below one millisecond.
 
 Generated HTML can disclose every player's cards and may be large when many
 matches are retained. Treat it as evaluation output, not a training artifact;
@@ -63,3 +66,6 @@ heart.save_gif(states, "heart-preview.gif", viewer=0, duration_ms=95)
 
 Install it with `python -m pip install -e '.[render]'`. GIF generation is a
 host-only convenience surface and is not imported from Pillow until invoked.
+The output path must end in `.gif`; Pillow is also instructed to encode GIF
+regardless of platform defaults. Non-16:9 frame sizes use a centered 960×540
+virtual canvas with letterboxing rather than distorting seat coordinates.

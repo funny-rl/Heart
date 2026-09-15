@@ -3,9 +3,33 @@
 from __future__ import annotations
 
 import numpy as np
+from jax import device_get
 
 from heart.cards import CARD_NAMES, NUM_PLAYERS
 from heart.types import State
+
+
+def _visible_trick(state: State) -> tuple[np.ndarray, int, bool]:
+    """Return cards, original leader, and whether this is the previous trick."""
+
+    position = int(state.trick_position)
+    if position > 0:
+        return np.asarray(state.current_trick), int(state.leader), False
+
+    completed = int(state.trick_index)
+    if completed == 0:
+        return np.asarray(state.current_trick), int(state.leader), False
+
+    index = completed - 1
+    cards = np.asarray(state.trick_history)[index]
+    winner = int(np.asarray(state.trick_winners)[index])
+    led_suit = int(cards[0]) // 13
+    ranks = np.asarray(
+        [int(card) % 13 if int(card) // 13 == led_suit else -1 for card in cards]
+    )
+    winner_offset = int(np.argmax(ranks))
+    leader = (winner - winner_offset) % NUM_PLAYERS
+    return cards, leader, True
 
 
 def _cards_text(cards: np.ndarray) -> str:
@@ -21,9 +45,10 @@ def render_ansi(state: State, viewer: int | None = None) -> str:
 
     if viewer is not None and not 0 <= viewer < NUM_PLAYERS:
         raise ValueError(f"viewer must be in [0, {NUM_PLAYERS}) or None")
+    state = device_get(state)
 
     hands = np.asarray(state.hands)
-    current_trick = np.asarray(state.current_trick)
+    visible_trick, _, previous = _visible_trick(state)
     penalties = np.asarray(state.penalties)
     scores = np.asarray(state.scores)
     lines = [
@@ -32,7 +57,7 @@ def render_ansi(state: State, viewer: int | None = None) -> str:
             f"active=P{int(state.active_player)} | "
             f"hearts_broken={bool(state.hearts_broken)}"
         ),
-        f"Table: {_cards_text(current_trick)}",
+        f"{'Last trick' if previous else 'Table'}: {_cards_text(visible_trick)}",
         "Scores: " + "  ".join(f"P{i}={int(penalties[i])}" for i in range(NUM_PLAYERS)),
     ]
     for player in range(NUM_PLAYERS):

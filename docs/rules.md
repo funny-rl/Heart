@@ -58,3 +58,7 @@ overrides for controlled experiments. An overridden environment is not a
 canonical `simplest-v0` result and must report its full configuration. New
 published semantics should receive a new versioned environment ID rather than
 silently changing this contract.
+
+`queen_of_spades_penalty` must be a non-boolean integer from 0 through 32754.
+The upper bound ensures that 13 heart points plus Q♠ remain representable by the
+current signed `int16` penalty and score arrays.

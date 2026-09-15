@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import jax
+import numpy as np
 import pytest
 
 import heart
@@ -36,3 +37,50 @@ def test_gif_rejects_invalid_inputs():
         heart.save_gif([state], "unused.gif", duration_ms=0)
     with pytest.raises(ValueError):
         heart.render_gif_frame(state, viewer=4)
+
+
+def _advance_state(count: int):
+    env = heart.make()
+    state, observation = env.reset(jax.random.key(407))
+    for _ in range(count):
+        action = observation.action_mask.argmax()
+        state, observation, *_ = env.step(state, action)
+    return state
+
+
+@pytest.mark.parametrize(("step", "history_index"), [(4, 0), (52, 12)])
+def test_gif_frame_draws_completed_trick_at_boundaries(
+    monkeypatch, step, history_index
+):
+    import heart.gif_render as renderer
+
+    state = _advance_state(step)
+    drawn = []
+
+    def record(draw, card, xy, size, fonts, *, legal=False):
+        drawn.append(int(card))
+
+    monkeypatch.setattr(renderer, "_card", record)
+    renderer.render_gif_frame(state)
+
+    hand_count = int(np.asarray(state.hands).sum())
+    expected = [int(card) for card in np.asarray(state.trick_history)[history_index]]
+    assert drawn[hand_count:] == expected
+
+
+def test_gif_letterboxes_arbitrary_aspect_ratio():
+    state, _ = heart.make().reset(jax.random.key(409))
+    standard = np.asarray(heart.render_gif_frame(state))
+    wide = np.asarray(heart.render_gif_frame(state, size=(1200, 540)))
+    assert np.array_equal(wide[:, 120:1080], standard)
+    assert np.all(wide[:, :120] == np.asarray([17, 19, 26]))
+    assert np.all(wide[:, 1080:] == np.asarray([17, 19, 26]))
+
+
+def test_save_gif_requires_gif_suffix_and_forces_format(tmp_path):
+    state, _ = heart.make().reset(jax.random.key(411))
+    with pytest.raises(ValueError, match=r"\.gif suffix"):
+        heart.save_gif([state], tmp_path / "preview.png")
+
+    output = heart.save_gif([state], tmp_path / "preview.GIF")
+    assert output.read_bytes().startswith(b"GIF")

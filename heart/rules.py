@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import operator
+
 import jax
 import jax.numpy as jnp
 from jax import Array
@@ -98,12 +100,34 @@ def observe(
 ) -> Observation:
     """Project omniscient state into a legal player observation."""
 
-    player = jnp.asarray(player, dtype=jnp.int32)
-    is_active = player == state.active_player
+    if not isinstance(player, jax.core.Tracer):
+        try:
+            concrete_player = operator.index(player)
+        except TypeError as error:
+            raise TypeError("player must be a scalar integer") from error
+        if not 0 <= concrete_player < NUM_PLAYERS:
+            raise ValueError(f"player must be in [0, {NUM_PLAYERS})")
+
+    raw_player = jnp.asarray(player)
+    is_scalar_integer = (
+        raw_player.ndim == 0
+        and jnp.issubdtype(raw_player.dtype, jnp.integer)
+        and not jnp.issubdtype(raw_player.dtype, jnp.bool_)
+    )
+    player = (
+        raw_player.astype(jnp.int32)
+        if is_scalar_integer
+        else jnp.asarray(0, dtype=jnp.int32)
+    )
+    valid_player = (
+        jnp.asarray(is_scalar_integer) & (player >= 0) & (player < NUM_PLAYERS)
+    )
+    safe_player = jnp.clip(player, 0, NUM_PLAYERS - 1)
+    is_active = valid_player & (player == state.active_player)
     mask = jnp.where(is_active, legal_action_mask(state, rules), False)
     return Observation(
         player=player,
-        hand=state.hands[player],
+        hand=jnp.where(valid_player, state.hands[safe_player], False),
         hand_sizes=jnp.sum(state.hands, axis=1, dtype=jnp.int16),
         current_trick=state.current_trick,
         trick_history=state.trick_history,
@@ -238,8 +262,16 @@ def step(
 ) -> tuple[State, Observation, Array, Array, Info]:
     """Play one card; invalid actions leave the state unchanged."""
 
-    action = jnp.asarray(action, dtype=jnp.int32)
-    in_bounds = (action >= 0) & (action < NUM_CARDS)
+    raw_action = jnp.asarray(action)
+    is_integer_dtype = jnp.issubdtype(
+        raw_action.dtype, jnp.integer
+    ) and not jnp.issubdtype(raw_action.dtype, jnp.bool_)
+    if is_integer_dtype:
+        in_bounds = (raw_action >= 0) & (raw_action < NUM_CARDS)
+        action = raw_action.astype(jnp.int32)
+    else:
+        in_bounds = jnp.asarray(False)
+        action = jnp.asarray(0, dtype=jnp.int32)
     safe_action = jnp.clip(action, 0, NUM_CARDS - 1)
     mask = legal_action_mask(state, rules)
     is_legal = in_bounds & mask[safe_action]
@@ -260,5 +292,23 @@ def step(
         return state, jnp.zeros((NUM_PLAYERS,), dtype=jnp.float32), info
 
     next_state, rewards, info = jax.lax.cond(is_legal, apply, reject, operand=None)
+    observation = observe(next_state, next_state.active_player, rules)
+    return next_state, observation, rewards, next_state.terminated, info
+
+
+def step_unchecked(
+    state: State,
+    action: Array | int,
+    rules: SingleDealRules = SINGLE,
+) -> tuple[State, Observation, Array, Array, Info]:
+    """Play an action already proven legal by the caller.
+
+    This trusted rollout path skips bounds, dtype, ownership, and rule-mask
+    validation. Passing anything except a scalar legal integer card ID has
+    undefined behavior; use :func:`step` at untrusted API boundaries.
+    """
+
+    action = jnp.asarray(action, dtype=jnp.int32)
+    next_state, rewards, info = _apply_legal_action(state, action, rules)
     observation = observe(next_state, next_state.active_player, rules)
     return next_state, observation, rewards, next_state.terminated, info

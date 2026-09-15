@@ -38,6 +38,10 @@ transition. Prefer fixed-shape PyTrees, explicit keys, mask-safe array logic,
 and fail-closed invalid actions. Do not combine a semantic change with an
 unrelated refactor.
 
+`step_unchecked` is a trusted performance API. Changes to it require
+safe-versus-trusted output-equivalence tests for legal actions and benchmark
+receipts that isolate validation overhead.
+
 ## Tests and performance
 
 Rules changes need focused normal, boundary, and adversarial tests. At minimum,

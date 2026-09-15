@@ -72,7 +72,25 @@ moon shooter, and terminal winner mask.
 
 An out-of-range or masked action fails closed: state is unchanged,
 `info.invalid_action` is true, and rewards remain zero. Calling `step` again
-after termination is therefore also invalid.
+after termination is therefore also invalid. Float and boolean actions are not
+silently cast to card IDs.
+
+Concrete player IDs passed to `observe` must be scalar integers in `[0, 4)` or
+the call raises `TypeError`/`ValueError`. A dynamically traced invalid ID or
+non-integer dtype cannot raise inside ordinary JIT; it fails closed with an
+empty hand and empty action mask.
+
+## Trusted rollout path
+
+`env.step_unchecked(state, action)` is an opt-in optimization for compiled code
+that selected a scalar integer action from the exact mask accompanying `state`.
+It skips dtype, bounds, ownership, and legality validation, then executes the
+same authoritative transition and constructs the same next observation.
+
+Behavior is undefined when its precondition is violated. Environment adapters,
+interactive clients, imported trajectories, and user-controlled actions must
+use safe `env.step`. Training loops should establish output equivalence before
+switching to the trusted path.
 
 The API is designed for `jax.jit`, `jax.vmap`, and `jax.lax.scan`. Host-side
 Python conversion of traced values, rendering, file I/O, and logging must stay

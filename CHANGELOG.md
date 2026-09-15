@@ -6,6 +6,24 @@ separately version game semantics.
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject invalid observer IDs, non-integer actions, and unsafe Q♠ penalty
+  overrides instead of leaking or silently coercing values.
+- Show the completed fourth card at every trick boundary in ANSI, HTML, and GIF
+  rendering, including the terminal frame.
+- Enforce GIF output format, centered arbitrary-size layout, and finite replay
+  frame rates.
+
+### Added
+
+- Opt-in `step_unchecked` for trusted mask-selected compiled rollouts.
+- Separate engine/policy and safe/trusted benchmark modes with synchronized
+  minimal outputs.
+- Adversarial rule, API-boundary, rendering, and benchmark regression tests.
+- SHA-pinned CI actions, Ruff enforcement, and installed-wheel full-deal and
+  HTML replay smoke tests.
+
 ## [0.1.0] - 2026-09-15
 
 ### Added
