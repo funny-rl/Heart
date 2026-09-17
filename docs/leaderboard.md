@@ -15,20 +15,18 @@
 <!-- standings:start -->
 <div align="center">
 
-### 🥇 &nbsp; RL (TA) &nbsp; · &nbsp; **5.21** penalty points per deal
+### 🥇 &nbsp; RL (TA) &nbsp; · &nbsp; **5.72** penalty points per deal
 
-<sub>8,192 complete matches to 100 points · 83,942 deals · rotating seats · shared deals</sub>
+<sub>8,192 complete matches to 100 points · 91,433 deals · rotating seats · shared deals</sub>
 
 </div>
 
 | | Entry | Penalty / deal | vs field | Won | Last | Elo | Matches |
 | :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 🥇 | **RL (TA)** | **5.205** &nbsp;<sub>± 0.031</sub> | −1.54 | 40.6 % | 7.1 % | **1618** &nbsp;<sub>± 2</sub> | 5,460 |
-| 🥈 | **PSRO (TA)** | **5.308** &nbsp;<sub>± 0.030</sub> | −1.44 | 38.4 % | 7.6 % | **1609** &nbsp;<sub>± 1</sub> | 5,440 |
-| 🥉 | rule-hard | 6.083 &nbsp;<sub>± 0.034</sub> | −0.66 | 27.5 % | 15.1 % | 1541 &nbsp;<sub>± 2</sub> | 5,495 |
-| 4 | rule-medium | 6.495 &nbsp;<sub>± 0.036</sub> | −0.25 | 23.0 % | 20.0 % | 1510 &nbsp;<sub>± 2</sub> | 5,421 |
-| 5 | rule-easy | 6.604 &nbsp;<sub>± 0.035</sub> | −0.14 | 21.8 % | 21.1 % | 1500 &nbsp;<sub>± 2</sub> | 5,509 |
-| 6 | baseline | 10.774 &nbsp;<sub>± 0.039</sub> | +4.03 | 1.5 % | 80.0 % | 1222 &nbsp;<sub>± 1</sub> | 5,443 |
+| 🥇 | **RL (TA)** | **5.719** &nbsp;<sub>± 0.024</sub> | −1.02 | 39.8 % | 11.5 % | **1580** &nbsp;<sub>± 2</sub> | 8,192 |
+| 🥈 | **rule-hard** | **6.713** &nbsp;<sub>± 0.027</sub> | −0.02 | 24.7 % | 24.7 % | **1500** &nbsp;<sub>± 2</sub> | 8,192 |
+| 🥉 | rule-medium | 7.150 &nbsp;<sub>± 0.028</sub> | +0.41 | 19.8 % | 30.5 % | 1467 &nbsp;<sub>± 2</sub> | 8,192 |
+| 4 | rule-easy | 7.359 &nbsp;<sub>± 0.028</sub> | +0.62 | 18.0 % | 33.8 % | 1453 &nbsp;<sub>± 2</sub> | 8,192 |
 
 <div align="center">
 <sub>
@@ -39,11 +37,10 @@ Updated 2026-09-18 · field average **6.74** points per deal
 </div>
 <!-- standings:end -->
 
-> **Read it honestly.** `(TA)` marks the two policies this project trained; they
-> are here as a yardstick, not as contenders. `baseline` is the packaged floor —
-> it plays the cheapest legal card and nothing else — and a weak seat absorbs
-> points, which lifts everyone else at the table. The figures move when the field
-> moves, so compare entries within one run rather than across runs.
+> **Read it honestly.** `(TA)` marks a policy this project trained; it is here
+> as a yardstick, not as a contender. The figures move when the field moves — a
+> weak seat absorbs points and lifts everyone else at the table — so compare
+> entries within one run rather than across runs.
 
 <sub>Every entry above, the packaged policies included, went through this same
 contract: the same observation, the same action space, the same checks. A
@@ -60,7 +57,7 @@ yardstick.</sub>
 | **vs field** | the same figure minus the field's average. Negative means the entry takes fewer points than the table around it. |
 | **Won** | share of **complete matches** whose final cumulative score was the lowest at the table — the game's own definition of winning, not a per-deal count. Ties count for everyone tied, so the column sums above 100 %. |
 | **Last** | share of **complete matches** whose final cumulative score was the **highest** — again per match to 100 points, not per deal. A policy can win often and still collapse often; these two columns separate steady play from streaky play. |
-| **Elo** | fitted from every match's six seat-versus-seat pairings, won by the lower final score. It says who beats whom; the points column says by how much. |
+| **Elo** | fitted from every seat-versus-seat pairing each match implies, won by the lower final score. It says who beats whom; the points column says by how much. |
 | **Matches** | complete matches this entry sat in — the sample each figure is computed over. Each runs about eleven deals. |
 
 A field averages more than 6.5 because a shot moon pays 78 points instead of 26.
@@ -183,9 +180,19 @@ reason listed above.
 ### A worked entry
 
 `heart.contest.baseline_blob()` returns a complete, valid entry — play the
-cheapest legal card, pass the three highest. It is the floor the standings are
-measured against and the shortest example of the contract in use.
-`submissions/heart-marl/` is that entry, laid out the way a submission looks.
+cheapest legal card, pass the three highest. It is the shortest example of the
+contract in use, and a good thing to check your own entry against before you
+send it: an entry that cannot beat it is not yet ready.
+
+```python
+from heart.contest import baseline_blob, load_submission, run_league
+
+entry = load_submission(baseline_blob(), "baseline")
+```
+
+It does not sit in the standings. A policy that plays the cheapest legal card
+loses almost every match, and a seat that loses that reliably hands its points
+to everyone else, which flatters the whole table.
 
 ## Sending it in
 
@@ -241,15 +248,17 @@ points — zero-sum, divided by the deal's total — and ranking on it would mak
 the standings depend on a modelling choice rather than on Hearts. Two entries
 whose intervals overlap **share a rank** rather than being ordered by noise.
 
-**Elo** is reported beside it. Every table is read as its six seat-versus-seat
-pairings, won by the lower score, and fitted to a rating; sequential Elo would
-depend on the order games happened to run, so the fit repeats over the whole
-record. Its spread comes from resampling the pairings.
+**Elo** is reported beside it. Every table is read as the seat-versus-seat
+pairings it implies, each won by the lower score, and fitted to a rating;
+sequential Elo would depend on the order games happened to run, so the fit
+repeats over the whole record. Its spread comes from resampling the pairings.
 
-Sharing a rank is not a formality. At roughly 6,500 deals per entry the error on
-points is ±0.05, and separating entries that differ by 0.1 needs that order of
-sample. A field measured over a few hundred deals will mostly tie, and it should
-say so.
+Sharing a rank is not a formality. **The ± beside each figure is the sample the
+standings actually ran on** — it moves with the number of entries, how many
+matches were played and how far the field spreads, so read it from the table
+rather than from anything written here. Two entries closer together than their
+errors have not been separated, and a field measured over a few hundred deals
+will mostly tie. It should say so rather than invent an order.
 
 ```python
 from heart.contest import run_league

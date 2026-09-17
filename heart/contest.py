@@ -258,7 +258,7 @@ class Standing:
 def _fit_elo(count, left, right, outcome, *, passes: int = 300) -> np.ndarray:
     """Ratings that reproduce the observed pairwise results.
 
-    Hearts seats four, so each match is read as its six pairings. Sequential Elo
+    Each match is read as every pairing its seats imply. Sequential Elo
     would depend on the order games happened to be played, so the update repeats
     with a decaying step until it settles on the ratings the whole record
     implies.
@@ -282,7 +282,7 @@ def _fit_elo(count, left, right, outcome, *, passes: int = 300) -> np.ndarray:
 
 
 def _pairings(seating: np.ndarray, scores: np.ndarray):
-    """Every match becomes its six seat-versus-seat comparisons.
+    """Every match becomes the seat-versus-seat comparisons its seats imply.
 
     Hearts is won by the lowest score, so the seat that finished the match with
     fewer penalty points takes the pairing.
@@ -445,8 +445,8 @@ def run_league(
     Every round reuses one set of deals for all seatings, and seats rotate
     within a lineup, so entries are compared on the same cards rather than on
     their luck. Two entries whose intervals overlap share a rank instead of
-    being ordered by noise. Each match is also read as its six pairings and
-    fitted to an Elo rating, with its own spread from resampling them.
+    being ordered by noise. Each match is also read as the pairings its seats
+    imply and fitted to an Elo rating, with its own spread from resampling them.
 
     The ranking figure is **penalty points per deal**, lower being better. A
     reward is this environment's normalisation of those points, so ranking on it

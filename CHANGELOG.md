@@ -20,7 +20,7 @@ separately version game semantics.
 - `heart.contest.run_league`: entries meet in sampled four-seat line-ups with
   rotating seats over shared deals, and are ranked on penalty points per deal —
   the game's own score rather than this environment's normalisation of it — with
-  an Elo fitted from the six pairings each table implies. Both carry their
+  an Elo fitted from the pairings each table implies. Both carry their
   error, and entries whose intervals overlap share a rank.
 - `submissions/`: entries arrive as a pull request adding one directory with the
   exported graph and a short manifest. `submissions/validate.py` runs the same
@@ -28,8 +28,9 @@ separately version game semantics.
   directory is its handle, so submitting again replaces the entry rather than
   adding a row and the standings cannot be occupied by volume.
 - `heart.contest.baseline_blob`: a complete valid entry that plays the cheapest
-  legal card, both as the floor of the standings and as the shortest example of
-  the contract.
+  legal card — the shortest example of the contract, and something to check an
+  entry against before sending it. It is not seated in the standings: a policy
+  that loses that reliably hands its points to the rest of the table.
 
 - `heart.play`: a person takes one `classic-v0` seat against rule tiers or
   plugin-supplied learned policies, over a local single-match HTTP server
