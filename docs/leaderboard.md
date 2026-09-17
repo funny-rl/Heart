@@ -16,33 +16,43 @@
 
 ### 🥇 &nbsp; PSRO &nbsp; · &nbsp; **6.19** penalty points per deal
 
-<sub>8,192 tables · rotating seats · shared deals · every rank separated</sub>
+<sub>8,192 games · 32,768 deals · rotating seats · shared deals · every rank separated</sub>
 
 </div>
 
-| | Entry | Penalty / deal | vs field | Elo | Deals |
-|:--:|---|--:|--:|--:|--:|
-| 🥇 | **PSRO** | **6.187** <sub>± 0.044</sub> | **−0.59** | **1531** <sub>± 2</sub> | 6,532 |
-| 🥈 | **RL** | **6.482** <sub>± 0.044</sub> | −0.29 | **1517** <sub>± 2</sub> | 6,564 |
-| 🥉 | rule-hard | 6.779 <sub>± 0.046</sub> | +0.01 | 1499 <sub>± 2</sub> | 6,618 |
-| 4 | rule-medium | 7.134 <sub>± 0.047</sub> | +0.36 | 1482 <sub>± 2</sub> | 6,520 |
-| 5 | rule-easy | 7.284 <sub>± 0.046</sub> | +0.51 | 1471 <sub>± 2</sub> | 6,534 |
+| | Entry | Penalty / deal | vs field | Elo | Games | Deals |
+|:--:|---|--:|--:|--:|--:|--:|
+| 🥇 | **PSRO** | **6.187** <sub>± 0.044</sub> | **−0.59** | **1531** <sub>± 2</sub> | 6,532 | 26,128 |
+| 🥈 | **RL** | **6.482** <sub>± 0.044</sub> | −0.29 | **1517** <sub>± 2</sub> | 6,564 | 26,256 |
+| 🥉 | rule-hard | 6.779 <sub>± 0.046</sub> | +0.01 | 1499 <sub>± 2</sub> | 6,618 | 26,472 |
+| 4 | rule-medium | 7.134 <sub>± 0.047</sub> | +0.36 | 1482 <sub>± 2</sub> | 6,520 | 26,080 |
+| 5 | rule-easy | 7.284 <sub>± 0.046</sub> | +0.51 | 1471 <sub>± 2</sub> | 6,534 | 26,136 |
 
 <div align="center">
 <sub>
 
-**Lower is better** — these are Hearts penalty points, the game's own currency.
 `RL` is recurrent PPO trained alone; `PSRO` is the best response a population
 method produced against a field containing `RL` and the rule tiers.
 
 </sub>
 </div>
 
-A deal hands 26 points to four seats, so a field averages **6.5**; the 6.77 here
-is higher because a shot moon pays 78. Every rank is separated — the closest
-pair, `rule-medium` to `rule-easy`, differs by 0.15 against a combined error of
-0.066 — and the rule tiers land in their designed order, which is a check on the
-measurement as much as on them.
+### What the numbers mean
+
+| Column | Meaning |
+| --- | --- |
+| **Deal** | one hand: thirteen tricks, dealt and played out. A deal hands out **26 penalty points** — one for each heart, thirteen for the queen of spades. Four seats share them, so a seat that neither gains nor loses on the field averages **6.5**. |
+| **Penalty / deal** | the average points this entry took per deal. **Lower is better** — this is what Hearts itself counts, not a reward this environment invented. |
+| **vs field** | the same figure minus the field's own average, **6.77**. Negative means the entry takes fewer points than the table around it, which is the only comparison that survives a change of opponents. |
+| **Elo** | a rating fitted from every table's six seat-versus-seat pairings, won by the lower score. It says who beats whom; the points column says by how much. |
+| **Games** | four-seat tables this entry sat at. Each game runs 220 events, which settles **four deals**. |
+| **Deals** | deals actually played from that seat — the sample the error is computed over. |
+
+The field averages 6.77 rather than 6.5 because a shot moon pays 78 points
+instead of 26. Every rank here is separated: the closest pair, `rule-medium` to
+`rule-easy`, differs by 0.15 against a combined error of 0.066, and the rule
+tiers land in their designed order, which is a check on the measurement as much
+as on them.
 
 > **Read it honestly.** This field is close to what `PSRO` trained against, so
 > the league flatters it. On a different measurement — each policy seated

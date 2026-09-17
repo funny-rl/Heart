@@ -199,7 +199,9 @@ def test_a_league_ranks_every_entry_on_the_scores_it_deals():
 
     assert {standing.name for standing in table} == {e.name for e in entries}
     assert [s.rank for s in table] == sorted(s.rank for s in table)
-    assert all(standing.deals > 0 for standing in table)
+    assert all(standing.tables > 0 for standing in table)
+    # Each table settles several deals, so deals outnumber seatings.
+    assert all(standing.deals > standing.tables for standing in table)
     # A deal hands out 26 points between four seats, so the field averages 6.5;
     # moon shots pay 78 and pull it a little higher.
     average = sum(standing.points for standing in table) / len(table)

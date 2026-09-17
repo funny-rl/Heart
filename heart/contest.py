@@ -225,6 +225,7 @@ class Standing:
     stderr: float
     elo: float
     elo_stderr: float
+    tables: int
     deals: int
     flops_per_decision: float
 
@@ -356,6 +357,7 @@ def run_league(
     rollout = _league_rollout(entries, lineups, steps)
     rng = np.random.default_rng(seed)
     collected: dict[int, list[float]] = {index: [] for index in range(len(entries))}
+    dealt: dict[int, int] = dict.fromkeys(range(len(entries)), 0)
     pairings: list[tuple] = []
 
     for round_index in range(rounds):
@@ -374,6 +376,7 @@ def run_league(
                 chosen = settled & (seating[:, seat] == index)
                 if chosen.any():
                     collected[index].extend(per_deal[chosen, seat])
+                    dealt[index] += int(deals[chosen].sum())
 
     left = np.concatenate([pair[0] for pair in pairings])
     right = np.concatenate([pair[1] for pair in pairings])
@@ -413,6 +416,7 @@ def run_league(
                 float(ratings[index]),
                 float(spread[index]),
                 int(values.size),
+                dealt[index],
                 entry.flops_per_decision,
             )
         )
