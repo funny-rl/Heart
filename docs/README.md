@@ -11,6 +11,7 @@ be reconciled in the same change.
 | Game semantics        | `heart/rules.py`, `heart/config.py`       | [`simplest-v0` rules](rules.md)        |
 | Human inspection      | `heart/render.py`, `heart/html_render.py` | [Rendering and replay](rendering.md)   |
 | Human play            | `heart/play.py`                           | [Human play](play.md)                  |
+| Leaderboard entries   | `heart/contest.py`                        | [Leaderboard](leaderboard.md)          |
 | Experimental evidence | examples and benchmarks                   | [Reproducibility](reproducibility.md)  |
 | Distribution          | `pyproject.toml`, CI                      | [Release policy](release.md)           |
 

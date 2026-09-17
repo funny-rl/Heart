@@ -47,6 +47,7 @@ host-side.
 | **Reference opponents** | Seeded `easy`, `medium`, and `hard` rule policies share the learning-policy interface.     |
 | **Inspectable replays** | Seat-view or omniscient terminal, HTML snapshot, and portable interactive replay outputs.  |
 | **Human play**          | One seat played by a person against rule tiers or plugged-in learned policies.            |
+| **Leaderboard entries** | Policies submitted as portable graphs, checked against a signature and a compute budget.  |
 
 Training algorithms are intentionally not bundled. HEART supplies the game
 contract and reference policies; callers retain ownership of batching,

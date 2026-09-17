@@ -8,6 +8,13 @@ separately version game semantics.
 
 ### Added
 
+- `heart.contest`: a leaderboard submission contract. An entry is a policy
+  exported to a portable computation graph, so the host runs it inside XLA
+  without importing submitter code and a host callback cannot be exported at
+  all. Entries are checked against a fixed observation and logit signature, a
+  size limit, and a per-decision flop budget measured from the compiled graph.
+  See [the submission rules](docs/leaderboard.md).
+
 - `heart.play`: a person takes one `classic-v0` seat against rule tiers or
   plugin-supplied learned policies, over a local single-match HTTP server
   with a browser page, mask-checked actions, and JIT-compiled turns.

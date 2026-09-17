@@ -52,6 +52,13 @@ from heart.classic_single_agent import (
     ClassicSingleAgentState,
     make_classic_single_agent,
 )
+from heart.contest import (
+    OBSERVATION_DIM,
+    Submission,
+    SubmissionError,
+    encode_observation,
+    load_submission,
+)
 from heart.env import AVAILABLE_MODES, SIMPLEST_V0, HeartEnv, make
 from heart.gif_render import render_gif_frame, save_gif
 from heart.html_render import (
@@ -89,6 +96,7 @@ __all__ = [
     "NUM_CARDS",
     "NUM_PASS_ACTIONS",
     "NUM_PLAYERS",
+    "OBSERVATION_DIM",
     "PASS",
     "PASS_ACROSS",
     "PASS_COMBINATIONS",
@@ -121,9 +129,13 @@ __all__ = [
     "SingleAgentObservation",
     "SingleAgentState",
     "State",
+    "Submission",
+    "SubmissionError",
     "card_id",
     "card_name",
+    "encode_observation",
     "load_seat_policy",
+    "load_submission",
     "make",
     "make_classic_single_agent",
     "make_rule_pass_policy",

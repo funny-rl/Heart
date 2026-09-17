@@ -34,7 +34,8 @@ classifiers = [
 [project.optional-dependencies]
 test = ["pytest>=8"]
 render = ["pillow>=10"]
-dev = ["build>=1", "pillow>=10", "pytest>=8", "ruff>=0.6"]
+contest = ["flatbuffers>=23"]
+dev = ["build>=1", "flatbuffers>=23", "pillow>=10", "pytest>=8", "ruff>=0.6"]
 
 [tool.setuptools.packages.find]
 include = ["heart*"]
