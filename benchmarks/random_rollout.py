@@ -39,7 +39,7 @@ def build_rollout(
     if step_mode not in STEP_MODES:
         raise ValueError(f"unknown step mode {step_mode!r}; available: {STEP_MODES}")
 
-    env = heart.make()
+    env = heart.DealEnv()
     batch_reset = jax.vmap(env.reset)
     step_fn = env.step if step_mode == "safe" else env.step_unchecked
     batch_step = jax.vmap(step_fn)
@@ -109,7 +109,7 @@ def main() -> None:
 
     deals = args.batch_size * args.runs
     actions = deals * 52
-    print(f"mode: {heart.SIMPLEST_V0}")
+    print("subject: deal core (heart.DealEnv)")
     print(f"workload: {args.workload}")
     print(f"step mode: {args.step_mode}")
     if args.workload == "policy-inclusive":

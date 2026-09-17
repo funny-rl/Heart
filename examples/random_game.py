@@ -9,7 +9,7 @@ import heart
 
 
 def main() -> None:
-    env = heart.make()
+    env = heart.DealEnv()
     key = jax.random.key(0)
     key, reset_key = jax.random.split(key)
     state, observation = env.reset(reset_key)

@@ -5,7 +5,7 @@ import heart
 
 
 def test_player_renderer_reveals_all_cards_and_identifies_viewer():
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(0))
     rendered = heart.render_ansi(state, viewer=0)
     assert "P0 (YOU):" in rendered
@@ -15,7 +15,7 @@ def test_player_renderer_reveals_all_cards_and_identifies_viewer():
 
 
 def _advance_state(count: int):
-    env = heart.make()
+    env = heart.DealEnv()
     state, observation = env.reset(jax.random.key(413))
     for _ in range(count):
         action = observation.action_mask.argmax()

@@ -9,6 +9,7 @@ import pytest
 
 import heart
 from heart import contest
+from heart.cards import HAND_SIZE
 from heart.classic import NUM_PASS_ACTIONS
 from heart.contest import (
     SubmissionError,
@@ -17,7 +18,6 @@ from heart.contest import (
     observation_signature,
     sample_observation,
 )
-from heart.single_agent import HAND_SIZE
 
 export = pytest.importorskip("jax.export")
 

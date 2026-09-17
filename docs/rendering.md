@@ -24,7 +24,7 @@ Use an integer viewer for anything a player sees, including `heart.play`, and
 `None` for debugging, evaluation, teaching, and omniscient replay. Policies
 receive private observations rather than renderer input.
 
-## `simplest-v0` snapshots
+## Deal snapshots
 
 ```python
 text = heart.render_ansi(state, viewer=0)
@@ -63,7 +63,7 @@ At terminal completion, `game` remains the final completed deal and renderers
 use the match-level `winner_mask`, including every player tied for the lowest
 cumulative score.
 
-## Interactive `simplest-v0` replay
+## Interactive deal replay
 
 Retain reset state followed by every successor state:
 
@@ -97,7 +97,7 @@ frames = env.replay_events(before, info)
 valid recorded event. It uses `event_count` and `event_valid` to ignore sentinel
 padding. Expansion is deterministic and host-side; do not call it inside
 `jax.jit`. The resulting frames can be sent to classic snapshot or GIF
-renderers. They are not inputs to the `simplest-v0` HTML replay helper.
+renderers. They are not inputs to the deal HTML replay helper.
 
 ## Animated previews
 

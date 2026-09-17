@@ -2,25 +2,25 @@
 
 ## Construction and lifecycle
 
-The default fixed-deal environment is:
+The published environment is the complete match:
 
 ```python
-env = heart.make("simplest-v0")
+env = heart.make("classic-v0")     # the default, and the only mode
 state, observation = env.reset(key)
 state, observation, rewards, terminated, info = env.step(state, action)
 ```
 
-Select the complete match explicitly:
+The deal core it runs on has its own handle, for testing and measuring the
+transition on its own rather than as a second environment:
 
 ```python
-env = heart.make("classic-v0")
-state, observation = env.reset(key)
-state, observation, rewards, terminated, info = env.step(state, action)
+deal = heart.DealEnv()             # 52 card plays, no passing, no match score
+state, observation = deal.reset(key)
 ```
 
 Both handles are immutable. Randomness enters through explicit reset and policy
-keys; `step` has no hidden random source or mutable state. `simplest-v0` ends
-after exactly 52 card-play transitions. The classic core spans complete deals:
+keys; `step` has no hidden random source or mutable state. A deal ends after
+exactly 52 card-play transitions. The classic core spans complete deals:
 passing deals contain four pass selections plus 52 card plays (56 events), and
 hold deals contain 52 card plays.
 
@@ -41,7 +41,7 @@ Card-play actions are scalar integer IDs in `[0, 52)`. Suits occupy contiguous
 
 Thus 2♣ is action `0` and Q♠ is action `36`.
 
-`simplest-v0` exposes one boolean `(52,)` action mask. `classic-v0` exposes a
+A deal exposes one boolean `(52,)` action mask. `classic-v0` exposes a
 phase-specific `(286,)` pass mask and `(52,)` play mask. The 286 pass actions
 are all `13C3` unordered triples of slots in the acting player's sorted
 13-card hand. On hold deals the pass phase is skipped.
@@ -79,7 +79,7 @@ A passing deal exposes one 286-way pass choice and 13 card choices, exactly 14
 learner decisions. A hold deal exposes exactly 13 card choices. Opponent events
 are automatically advanced and recorded in `ClassicSingleAgentInfo`.
 
-## `simplest-v0` state and observation
+## Deal state and observation
 
 `State` is the omniscient fixed-shape deal PyTree.
 
@@ -155,7 +155,7 @@ meanings, sentinel values, and phase behavior are the compatibility contract.
 
 ## Trusted rollout path
 
-`simplest-v0` provides `env.step_unchecked(state, action)` for compiled code
+`heart.DealEnv` provides `step_unchecked(state, action)` for compiled code
 that selected a scalar integer card ID from the authoritative mask. It skips
 dtype, bounds, ownership, and legality validation but preserves the transition
 and next observation. Behavior is undefined if its precondition is violated.

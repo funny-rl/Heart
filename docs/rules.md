@@ -1,7 +1,9 @@
-# `simplest-v0` rules and reward
+# Deal rules and reward
 
-This document is the normative semantic contract for environment ID
-`simplest-v0`.
+This document is the normative semantic contract for one deal: the trick
+semantics `classic-v0` runs on, and what `heart.rules` implements. The match
+layer above it — passing, the running score, the hundred-point end — is in
+[`classic.md`](classic.md).
 
 ## Deal and turn order
 
@@ -57,11 +59,11 @@ receives `-1`.
 
 ## Configuration boundary
 
-`heart.make("simplest-v0", **overrides)` currently permits immutable rule-field
-overrides for controlled experiments. An overridden environment is not a
-canonical `simplest-v0` result and must report its full configuration. New
-published semantics should receive a new versioned environment ID rather than
-silently changing this contract.
+`heart.make(**overrides)` and `heart.DealEnv(SingleDealRules(**overrides))`
+permit immutable rule-field overrides for controlled experiments. An overridden
+environment is not a canonical result and must report its full configuration.
+New published semantics should receive a new versioned environment ID rather
+than silently changing this contract.
 
 `queen_of_spades_penalty` must be a non-boolean integer from 0 through 32754.
 The upper bound ensures that 13 heart points plus Q♠ remain representable by the

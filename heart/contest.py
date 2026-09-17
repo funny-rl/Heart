@@ -29,7 +29,7 @@ import jax.numpy as jnp
 import numpy as np
 
 import heart
-from heart.cards import NUM_CARDS, NUM_PLAYERS
+from heart.cards import HAND_SIZE, NUM_CARDS, NUM_PLAYERS
 from heart.classic import (
     MAX_CLASSIC_CORE_STEPS,
     NUM_PASS_ACTIONS,
@@ -40,7 +40,6 @@ from heart.classic import (
     ClassicState,
 )
 from heart.classic_single_agent import ClassicSingleAgentObservation
-from heart.single_agent import HAND_SIZE
 from heart.types import Observation
 
 MAX_SUBMISSION_BYTES = 8 * 1024 * 1024

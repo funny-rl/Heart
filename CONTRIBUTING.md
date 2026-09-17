@@ -31,7 +31,7 @@ and the owning document under `docs/`. In the pull request:
 4. distinguish measurements from design assumptions and policy heuristics.
 
 Intentional semantic changes to a published environment require a new
-versioned ID. Do not silently change `simplest-v0`.
+versioned ID. Do not silently change `classic-v0`.
 
 Keep rendering, serialization, diagnostics, and file I/O outside the lean JAX
 transition. Prefer fixed-shape PyTrees, explicit keys, mask-safe array logic,

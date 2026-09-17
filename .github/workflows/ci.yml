@@ -44,12 +44,11 @@ jobs:
           python -m pytest tests/test_classic_render.py
           python -m pytest tests/test_classic_single_agent.py
           python -m pytest tests/test_contest.py
-          python -m pytest tests/test_env.py
           python -m pytest tests/test_gif_render.py
           python -m pytest tests/test_html_render.py
           python -m pytest tests/test_play.py
           python -m pytest tests/test_render.py
-          python -m pytest tests/test_single_agent.py
+          python -m pytest tests/test_rules.py
 
   distribution:
     name: Build distribution
@@ -78,29 +77,17 @@ jobs:
           import jax.numpy as jnp
           import heart
 
-          env = heart.make("simplest-v0")
-          state, observation = env.reset(jax.random.key(0))
+          deal = heart.DealEnv()
+          state, observation = deal.reset(jax.random.key(0))
           states = [state]
           rewards = jnp.zeros((4,), dtype=jnp.float32)
           while not bool(state.terminated):
               action = jnp.argmax(observation.action_mask)
-              state, observation, rewards, _, info = env.step(state, action)
+              state, observation, rewards, _, info = deal.step(state, action)
               assert not bool(info.invalid_action)
               states.append(state)
           assert len(states) == 53
           assert int(state.penalties.sum()) == 18
-
-          single_env = heart.make_single_agent(opponents="easy")
-          single_state, single_observation = single_env.reset(jax.random.key(1))
-          for _ in range(13):
-              slot = jnp.argmax(single_observation.action_mask)
-              single_state, single_observation, _, single_done, single_info = (
-                  single_env.step(single_state, slot)
-              )
-              assert not bool(single_info.invalid_action)
-          assert bool(single_done)
-          assert int(single_state.decisions) == 13
-          assert int(single_state.game.num_cards_played) == 52
 
           classic_env = heart.make("classic-v0")
           classic_state, classic_observation = classic_env.reset(jax.random.key(2))

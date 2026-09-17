@@ -5,7 +5,7 @@ separate compatibility signals.
 
 ## Environment IDs
 
-An environment ID such as `simplest-v0` names game semantics. Bug fixes that
+An environment ID such as `classic-v0` names game semantics. Bug fixes that
 restore its documented contract may retain the ID. Intentional changes to
 legality, observations, scoring, rewards, termination, or action encoding need
 a new environment version.

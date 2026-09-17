@@ -8,6 +8,7 @@ from heart.agents import (
 )
 from heart.cards import (
     CARD_NAMES,
+    HAND_SIZE,
     NUM_CARDS,
     NUM_PLAYERS,
     QUEEN_OF_SPADES,
@@ -64,7 +65,7 @@ from heart.contest import (
     run_league,
     sample_observation,
 )
-from heart.env import AVAILABLE_MODES, SIMPLEST_V0, HeartEnv, make
+from heart.env import AVAILABLE_MODES, DealEnv, make
 from heart.gif_render import render_gif_frame, save_gif
 from heart.html_render import (
     render_html,
@@ -81,13 +82,7 @@ from heart.play import (
     serve,
 )
 from heart.render import render_ansi
-from heart.single_agent import (
-    HAND_SIZE,
-    SingleAgentEnv,
-    SingleAgentObservation,
-    SingleAgentState,
-    make_single_agent,
-)
+from heart.single_agent import make_single_agent
 from heart.types import Info, Observation, State
 
 __all__ = [
@@ -110,7 +105,6 @@ __all__ = [
     "PASS_RIGHT",
     "PLAY",
     "QUEEN_OF_SPADES",
-    "SIMPLEST_V0",
     "TERMINAL",
     "TWO_OF_CLUBS",
     "ClassicEnv",
@@ -122,16 +116,13 @@ __all__ = [
     "ClassicSingleAgentObservation",
     "ClassicSingleAgentState",
     "ClassicState",
-    "HeartEnv",
+    "DealEnv",
     "HumanGame",
     "Info",
     "Observation",
     "RulePassPolicy",
     "RulePolicy",
     "SeatPolicy",
-    "SingleAgentEnv",
-    "SingleAgentObservation",
-    "SingleAgentState",
     "Standing",
     "State",
     "Submission",

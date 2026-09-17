@@ -7,6 +7,7 @@ import pytest
 
 import heart
 from heart.cards import HEART_MASK, POINT_CARD_MASK, SUIT_MASKS, card_id
+from heart.config import SingleDealRules
 from heart.rules import settle_deal
 
 
@@ -14,11 +15,12 @@ def choose_first_legal(observation):
     return jnp.argmax(observation.action_mask)
 
 
-def test_simplest_v0_is_default_and_classic_is_registered():
-    assert heart.make().mode == "simplest-v0"
-    assert heart.make("simplest-v0").mode == "simplest-v0"
-    assert heart.AVAILABLE_MODES == ("simplest-v0", "classic-v0")
+def test_the_match_environment_is_the_only_published_mode():
+    assert heart.AVAILABLE_MODES == ("classic-v0",)
+    assert heart.make().mode == "classic-v0"
     assert heart.make("classic-v0").mode == "classic-v0"
+    with pytest.raises(ValueError, match="unknown mode"):
+        heart.make("simplest-v0")
 
 
 def play_to_end(env, key):
@@ -34,7 +36,7 @@ def play_to_end(env, key):
 
 
 def test_reset_deals_every_card_once():
-    env = heart.make()
+    env = heart.DealEnv()
     state, observation = env.reset(jax.random.key(7))
     assert state.hands.shape == (4, 52)
     np.testing.assert_array_equal(np.asarray(state.hands).sum(axis=0), np.ones(52))
@@ -44,7 +46,7 @@ def test_reset_deals_every_card_once():
 
 
 def test_full_deal_has_fixed_horizon_and_terminal_reward_contract():
-    env = heart.make()
+    env = heart.DealEnv()
     state, observation, rewards, terminated = play_to_end(env, jax.random.key(11))
     assert bool(terminated)
     assert int(state.num_cards_played) == 52
@@ -60,7 +62,7 @@ def test_full_deal_has_fixed_horizon_and_terminal_reward_contract():
 
 
 def test_illegal_action_does_not_change_state():
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(3))
     next_state, _, rewards, _, info = env.step(state, heart.QUEEN_OF_SPADES)
     assert bool(info.invalid_action)
@@ -70,7 +72,7 @@ def test_illegal_action_does_not_change_state():
 
 
 def test_follow_suit_mask_when_available():
-    env = heart.make()
+    env = heart.DealEnv()
     state, observation = env.reset(jax.random.key(19))
     state, observation, *_ = env.step(state, heart.TWO_OF_CLUBS)
     hand = np.asarray(observation.hand)
@@ -86,7 +88,7 @@ def state_with_active_hand(state, cards, **updates):
 
 
 def test_first_trick_excludes_point_cards_when_player_is_void_in_led_suit():
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(23))
     diamond_card = card_id(1, 0)
     heart_card = card_id(3, 0)
@@ -105,7 +107,7 @@ def test_first_trick_excludes_point_cards_when_player_is_void_in_led_suit():
 
 
 def test_first_trick_allows_points_when_only_points_remain():
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(24))
     heart_card = card_id(3, 0)
     state = state_with_active_hand(
@@ -123,7 +125,7 @@ def test_first_trick_allows_points_when_only_points_remain():
 
 
 def test_hearts_cannot_lead_before_breaking_when_alternative_exists():
-    env = heart.make()
+    env = heart.DealEnv()
     state, observation = env.reset(jax.random.key(29))
     for _ in range(52):
         if int(state.trick_position) == 0 and not bool(state.hearts_broken):
@@ -137,7 +139,7 @@ def test_hearts_cannot_lead_before_breaking_when_alternative_exists():
 
 
 def test_jit_and_eager_step_match():
-    env = heart.make()
+    env = heart.DealEnv()
     state, observation = env.reset(jax.random.key(31))
     action = choose_first_legal(observation)
     eager = env.step(state, action)
@@ -149,7 +151,7 @@ def test_jit_and_eager_step_match():
 
 
 def test_unchecked_step_matches_safe_step_for_legal_action():
-    env = heart.make()
+    env = heart.DealEnv()
     state, observation = env.reset(jax.random.key(32))
     action = choose_first_legal(observation).astype(jnp.int32)
     safe = jax.jit(env.step)(state, action)
@@ -159,7 +161,7 @@ def test_unchecked_step_matches_safe_step_for_legal_action():
 
 
 def test_vmap_runs_independent_games():
-    env = heart.make()
+    env = heart.DealEnv()
     keys = jax.random.split(jax.random.key(37), 8)
     states, observations = jax.jit(jax.vmap(env.reset))(keys)
     actions = jnp.argmax(observations.action_mask, axis=-1)
@@ -179,7 +181,7 @@ def test_shooting_the_moon_is_a_solo_win():
 
 
 def test_ordinary_reward_is_normalized_by_configured_total_points():
-    rules = heart.make(queen_of_spades_penalty=13).rules
+    rules = SingleDealRules(queen_of_spades_penalty=13)
     scores, shooter, _, rewards = settle_deal(
         jnp.asarray([0, 5, 8, 13], dtype=jnp.int16), rules
     )
@@ -190,7 +192,7 @@ def test_ordinary_reward_is_normalized_by_configured_total_points():
 
 
 def test_custom_queen_penalty_normalizes_moon_opponents_to_minus_one():
-    rules = heart.make(queen_of_spades_penalty=9).rules
+    rules = SingleDealRules(queen_of_spades_penalty=9)
     _, shooter, _, rewards = settle_deal(
         jnp.asarray([0, 22, 0, 0], dtype=jnp.int16), rules
     )
@@ -201,14 +203,14 @@ def test_custom_queen_penalty_normalizes_moon_opponents_to_minus_one():
 @pytest.mark.parametrize("value", [True, False, 1.5, "5"])
 def test_queen_penalty_rejects_non_integer_values(value):
     with pytest.raises(TypeError):
-        heart.make(queen_of_spades_penalty=value)
+        SingleDealRules(queen_of_spades_penalty=value)
 
 
 def test_queen_penalty_rejects_values_that_overflow_score_storage():
     with pytest.raises(ValueError):
-        heart.make(queen_of_spades_penalty=32755)
+        SingleDealRules(queen_of_spades_penalty=32755)
 
-    rules = heart.make(queen_of_spades_penalty=32754).rules
+    rules = SingleDealRules(queen_of_spades_penalty=32754)
     scores, shooter, winners, _ = settle_deal(
         jnp.asarray([32767, 0, 0, 0], dtype=jnp.int16), rules
     )
@@ -219,7 +221,7 @@ def test_queen_penalty_rejects_values_that_overflow_score_storage():
 
 @pytest.mark.parametrize("player", [-1, 4, 99])
 def test_observe_rejects_invalid_concrete_player(player):
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(41))
     with pytest.raises(ValueError):
         env.observe(state, player)
@@ -227,7 +229,7 @@ def test_observe_rejects_invalid_concrete_player(player):
 
 @pytest.mark.parametrize("player", [-1, 4, 99])
 def test_jitted_observe_fails_closed_for_invalid_traced_player(player):
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(43))
     observation = jax.jit(env.observe)(state, jnp.asarray(player))
     assert not bool(observation.hand.any())
@@ -236,7 +238,7 @@ def test_jitted_observe_fails_closed_for_invalid_traced_player(player):
 
 @pytest.mark.parametrize("player", [False, True, 0.0, 1.9])
 def test_jitted_observe_fails_closed_for_non_integer_player(player):
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(44))
     observation = jax.jit(env.observe)(state, jnp.asarray(player))
     assert not bool(observation.hand.any())
@@ -245,7 +247,7 @@ def test_jitted_observe_fails_closed_for_non_integer_player(player):
 
 @pytest.mark.parametrize("action", [False, True, 0.0, 0.9])
 def test_non_integer_actions_are_invalid_and_do_not_change_state(action):
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(47))
     next_state, _, rewards, _, info = env.step(state, action)
     assert bool(info.invalid_action)
@@ -259,7 +261,7 @@ def test_non_integer_actions_are_invalid_and_do_not_change_state(action):
     [jnp.asarray([0]), jnp.asarray([0, 1]), jnp.asarray([[0]])],
 )
 def test_non_scalar_actions_are_invalid_and_do_not_change_state(action):
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(77))
 
     next_state, _, rewards, _, info = jax.jit(env.step)(state, action)
@@ -271,7 +273,7 @@ def test_non_scalar_actions_are_invalid_and_do_not_change_state(action):
 
 
 def test_unbroken_hearts_may_be_led_only_when_no_nonheart_remains():
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(49))
     diamond_card = card_id(1, 0)
     heart_card = card_id(3, 0)
@@ -292,7 +294,7 @@ def test_unbroken_hearts_may_be_led_only_when_no_nonheart_remains():
 
 
 def test_off_suit_high_card_cannot_win_and_points_go_to_trick_winner():
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(51))
     heart_card = card_id(3, 0)
     trick = jnp.asarray(
@@ -318,7 +320,7 @@ def test_off_suit_high_card_cannot_win_and_points_go_to_trick_winner():
 
 
 def test_step_after_termination_preserves_every_state_leaf():
-    env = heart.make()
+    env = heart.DealEnv()
     state, _, _, terminated = play_to_end(env, jax.random.key(53))
     assert bool(terminated)
     next_state, observation, rewards, next_terminated, info = env.step(state, 0)

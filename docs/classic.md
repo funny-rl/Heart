@@ -1,7 +1,7 @@
 # `classic-v0` rules and learning contract
 
 `classic-v0` is HEART's complete four-player Hearts match. It keeps the same
-JAX-native card-play rules as `simplest-v0`, restores standard Q♠ scoring and
+JAX-native card-play rules as the deal core, restores standard Q♠ scoring and
 passing, and carries scores across deals until the 100-point boundary.
 
 ## Match rules
@@ -10,7 +10,7 @@ Four independent players receive 13 cards from a uniformly shuffled 52-card
 deck. Each heart is 1 penalty point and Q♠ is 13, for 26 raw points per deal.
 The player holding 2♣ opens after passing. Following suit, first-trick point
 restrictions, hearts-broken leading, trick resolution, and shooting the moon
-follow the same precedence described for [`simplest-v0`](rules.md).
+follow the same precedence described in the [deal rules](rules.md).
 
 A moon shooter receives 0 effective points for that deal and every opponent
 receives 26. Effective deal scores are added to `match_scores`.

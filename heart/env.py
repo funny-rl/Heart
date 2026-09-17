@@ -1,4 +1,4 @@
-"""User-facing immutable environment object."""
+"""Environment construction, and a direct handle on the deal core."""
 
 from __future__ import annotations
 
@@ -10,17 +10,22 @@ from heart.config import SINGLE, SingleDealRules
 from heart.rules import legal_action_mask, observe, reset, step, step_unchecked
 from heart.types import Info, Observation, State
 
-SIMPLEST_V0 = "simplest-v0"
 CLASSIC_V0 = "classic-v0"
-AVAILABLE_MODES = (SIMPLEST_V0, CLASSIC_V0)
+AVAILABLE_MODES = (CLASSIC_V0,)
 
 
 @dataclass(frozen=True)
-class HeartEnv:
-    """A stateless handle for one HEART ruleset."""
+class DealEnv:
+    """One deal of Hearts: 52 plays, no passing, no running score.
+
+    This is the core `classic-v0` is built on, not an environment of its own.
+    It used to be published as `simplest-v0`, with its own single-learner
+    adapter, rule document, examples and benchmarks; nothing was ever built on
+    it, and a second contract is a second thing to keep true. What remains is
+    the handle that makes the core testable and measurable on its own.
+    """
 
     rules: SingleDealRules = SINGLE
-    mode: str = SIMPLEST_V0
 
     def reset(self, key: Array) -> tuple[State, Observation]:
         return reset(key, self.rules)
@@ -44,14 +49,11 @@ class HeartEnv:
         return legal_action_mask(state, self.rules)
 
 
-def make(mode: str = SIMPLEST_V0, **rule_overrides: object):
+def make(mode: str = CLASSIC_V0, **rule_overrides: object):
     """Create an environment by stable mode name."""
 
     if mode not in AVAILABLE_MODES:
         raise ValueError(f"unknown mode {mode!r}; available modes: {AVAILABLE_MODES}")
-    if mode == CLASSIC_V0:
-        from heart.classic import make_classic
+    from heart.classic import make_classic
 
-        return make_classic(**rule_overrides)
-    rules = SingleDealRules(**rule_overrides)
-    return HeartEnv(rules=rules, mode=mode)
+    return make_classic(**rule_overrides)

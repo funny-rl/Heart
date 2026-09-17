@@ -8,7 +8,7 @@ import heart
 
 
 def test_html_player_view_hides_other_hands_and_identifies_viewer():
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(201))
     viewer = (int(state.active_player) + 1) % heart.NUM_PLAYERS
     rendered = heart.render_html(state, viewer=viewer)
@@ -32,7 +32,7 @@ def test_html_player_view_hides_other_hands_and_identifies_viewer():
 
 
 def test_html_spectator_view_reveals_all_hands_without_viewer_marker():
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(203))
     rendered = heart.render_html(state, viewer=None)
     assert rendered.count('aria-label="P') >= 4
@@ -42,7 +42,7 @@ def test_html_spectator_view_reveals_all_hands_without_viewer_marker():
 
 
 def test_save_html_writes_standalone_page(tmp_path):
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(205))
     output = heart.save_html(state, tmp_path / "game.html", viewer=0)
     assert output.exists()
@@ -50,7 +50,7 @@ def test_save_html_writes_standalone_page(tmp_path):
 
 
 def test_replay_html_contains_frames_and_playback_controls(tmp_path):
-    env = heart.make("simplest-v0")
+    env = heart.DealEnv()
     state, observation = env.reset(jax.random.key(207))
     states = [state]
     for _ in range(3):
@@ -70,14 +70,14 @@ def test_replay_html_contains_frames_and_playback_controls(tmp_path):
 def test_replay_rejects_empty_or_nonpositive_fps():
     with pytest.raises(ValueError):
         heart.render_replay_html([])
-    env = heart.make()
+    env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(209))
     with pytest.raises(ValueError):
         heart.render_replay_html([state], fps=0)
 
 
 def _advance_states(count: int):
-    env = heart.make()
+    env = heart.DealEnv()
     state, observation = env.reset(jax.random.key(401))
     states = [state]
     for _ in range(count):
@@ -117,13 +117,13 @@ def test_html_shows_completed_trick_at_fourth_and_terminal_boundaries():
 
 @pytest.mark.parametrize("fps", [float("nan"), float("inf"), -float("inf"), 1000.1])
 def test_replay_rejects_nonfinite_or_excessive_fps(fps):
-    state, _ = heart.make().reset(jax.random.key(403))
+    state, _ = heart.DealEnv().reset(jax.random.key(403))
     with pytest.raises(ValueError, match="finite"):
         heart.render_replay_html([state], fps=fps)
 
 
 def test_replay_clamps_fastest_supported_rate_to_one_millisecond():
-    state, _ = heart.make().reset(jax.random.key(405))
+    state, _ = heart.DealEnv().reset(jax.random.key(405))
     rendered = heart.render_replay_html([state], fps=1000)
     assert "const baseInterval=1;" in rendered
 

@@ -36,6 +36,20 @@ separately version game semantics.
   plugin-supplied learned policies, over a local single-match HTTP server
   with a browser page, mask-checked actions, and JIT-compiled turns.
 
+### Removed
+
+- The `simplest-v0` environment ID, its single-learner adapter
+  (`SingleAgentEnv`), its benchmark, and the examples and rendering snippets
+  that drove it. One deal of Hearts was published as a second environment with
+  its own normative rule document, and nothing was ever built on it: the match
+  environment reaches the same deal core directly, so the ID only bought a
+  second contract to keep true. `heart.make()` now returns `classic-v0`, which
+  is the only mode.
+- `heart.DealEnv` replaces it where the core itself is the subject — the deal
+  transition, its masks and its rewards, tested and benchmarked on its own
+  rather than through a published environment. `docs/rules.md` remains the
+  normative contract for those semantics, since `classic-v0` runs on them.
+
 ### Fixed
 
 - `classic-v0` single-agent: `play_hand_cards` described the previous deal

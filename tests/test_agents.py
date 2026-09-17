@@ -12,7 +12,7 @@ from heart.cards import CLUBS, DIAMONDS, SPADES, card_id
 
 @pytest.mark.parametrize("difficulty", ["easy", "medium", "hard"])
 def test_rule_policy_always_chooses_legal_cards(difficulty):
-    env = heart.make()
+    env = heart.DealEnv()
     policy = heart.make_rule_policy(difficulty)
     key = jax.random.key(101)
     key, reset_key = jax.random.split(key)
@@ -29,7 +29,7 @@ def test_rule_policy_always_chooses_legal_cards(difficulty):
 
 @pytest.mark.parametrize("difficulty", ["easy", "medium", "hard"])
 def test_rule_policy_is_jittable(difficulty):
-    env = heart.make()
+    env = heart.DealEnv()
     policy = heart.make_rule_policy(difficulty)
     _, observation = env.reset(jax.random.key(103))
     eager = policy(observation, jax.random.key(104))
@@ -96,7 +96,7 @@ def test_hard_prefers_diamond_void_and_never_passes_two_of_clubs_for_club_void()
 
 
 def _play_observation(cards, *, trick_index, current_trick):
-    env = heart.make()
+    env = heart.DealEnv()
     _, observation = env.reset(jax.random.key(301))
     hand = jnp.zeros(52, dtype=jnp.bool_).at[jnp.asarray(cards)].set(True)
     trick = jnp.asarray(current_trick, dtype=jnp.int8)

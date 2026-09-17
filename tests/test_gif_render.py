@@ -10,14 +10,14 @@ Image = pytest.importorskip("PIL.Image")
 
 
 def test_gif_frame_is_full_size_rgb_image():
-    state, _ = heart.make().reset(jax.random.key(301))
+    state, _ = heart.DealEnv().reset(jax.random.key(301))
     frame = heart.render_gif_frame(state, viewer=2)
     assert frame.size == (960, 540)
     assert frame.mode == "RGB"
 
 
 def test_save_gif_writes_all_frames(tmp_path):
-    env = heart.make()
+    env = heart.DealEnv()
     state, observation = env.reset(jax.random.key(303))
     next_state, *_ = env.step(state, observation.action_mask.argmax())
     output = heart.save_gif(
@@ -32,7 +32,7 @@ def test_save_gif_writes_all_frames(tmp_path):
 def test_gif_rejects_invalid_inputs():
     with pytest.raises(ValueError):
         heart.save_gif([], "unused.gif")
-    state, _ = heart.make().reset(jax.random.key(305))
+    state, _ = heart.DealEnv().reset(jax.random.key(305))
     with pytest.raises(ValueError):
         heart.save_gif([state], "unused.gif", duration_ms=0)
     with pytest.raises(ValueError):
@@ -40,7 +40,7 @@ def test_gif_rejects_invalid_inputs():
 
 
 def _advance_state(count: int):
-    env = heart.make()
+    env = heart.DealEnv()
     state, observation = env.reset(jax.random.key(407))
     for _ in range(count):
         action = observation.action_mask.argmax()
@@ -69,7 +69,7 @@ def test_gif_frame_draws_completed_trick_at_boundaries(
 
 
 def test_gif_letterboxes_arbitrary_aspect_ratio():
-    state, _ = heart.make().reset(jax.random.key(409))
+    state, _ = heart.DealEnv().reset(jax.random.key(409))
     standard = np.asarray(heart.render_gif_frame(state))
     wide = np.asarray(heart.render_gif_frame(state, size=(1200, 540)))
     assert np.array_equal(wide[:, 120:1080], standard)
@@ -78,7 +78,7 @@ def test_gif_letterboxes_arbitrary_aspect_ratio():
 
 
 def test_save_gif_requires_gif_suffix_and_forces_format(tmp_path):
-    state, _ = heart.make().reset(jax.random.key(411))
+    state, _ = heart.DealEnv().reset(jax.random.key(411))
     with pytest.raises(ValueError, match=r"\.gif suffix"):
         heart.save_gif([state], tmp_path / "preview.png")
 
