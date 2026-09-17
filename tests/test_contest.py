@@ -199,9 +199,17 @@ def test_a_league_ranks_every_entry_on_the_scores_it_deals():
 
     assert {standing.name for standing in table} == {e.name for e in entries}
     assert [s.rank for s in table] == sorted(s.rank for s in table)
-    assert all(standing.tables > 0 for standing in table)
-    # Each table settles several deals, so deals outnumber seatings.
-    assert all(standing.deals > standing.tables for standing in table)
+    assert all(standing.matches > 0 for standing in table)
+    # A match runs to 100 points, which takes several deals.
+    assert all(standing.deals > 4 * standing.matches for standing in table)
+    # Four seats, one or more winners each match, so win rates sum to at least 1.
+    assert sum(standing.win_rate for standing in table) >= 1.0
+    assert sum(standing.last_rate for standing in table) >= 1.0
+    assert all(0.0 <= standing.win_rate <= 1.0 for standing in table)
+    assert all(0.0 <= standing.last_rate <= 1.0 for standing in table)
+    # The entry that takes fewest points should win most and finish last least.
+    assert table[0].win_rate >= table[-1].win_rate
+    assert table[0].last_rate <= table[-1].last_rate
     # A deal hands out 26 points between four seats, so the field averages 6.5;
     # moon shots pay 78 and pull it a little higher.
     average = sum(standing.points for standing in table) / len(table)

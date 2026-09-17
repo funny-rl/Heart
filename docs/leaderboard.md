@@ -14,19 +14,19 @@
 
 <div align="center">
 
-### 🥇 &nbsp; PSRO &nbsp; · &nbsp; **6.19** penalty points per deal
+### 🥇 &nbsp; PSRO &nbsp; · &nbsp; **6.20** penalty points per deal
 
-<sub>8,192 games · 32,768 deals · rotating seats · shared deals · every rank separated</sub>
+<sub>8,192 complete matches to 100 points · 363,900 deals · rotating seats · shared deals</sub>
 
 </div>
 
-| | Entry | Penalty / deal | vs field | Elo | Games | Deals |
-|:--:|---|--:|--:|--:|--:|--:|
-| 🥇 | **PSRO** | **6.187** <sub>± 0.044</sub> | **−0.59** | **1531** <sub>± 2</sub> | 6,532 | 26,128 |
-| 🥈 | **RL** | **6.482** <sub>± 0.044</sub> | −0.29 | **1517** <sub>± 2</sub> | 6,564 | 26,256 |
-| 🥉 | rule-hard | 6.779 <sub>± 0.046</sub> | +0.01 | 1499 <sub>± 2</sub> | 6,618 | 26,472 |
-| 4 | rule-medium | 7.134 <sub>± 0.047</sub> | +0.36 | 1482 <sub>± 2</sub> | 6,520 | 26,080 |
-| 5 | rule-easy | 7.284 <sub>± 0.046</sub> | +0.51 | 1471 <sub>± 2</sub> | 6,534 | 26,136 |
+| | Entry | Penalty / deal | vs field | Won | Last | Elo | Matches | Deals |
+|:--:|---|--:|--:|--:|--:|--:|--:|--:|
+| 🥇 | **PSRO** | **6.197** <sub>± 0.029</sub> | **−0.61** | **33.2 %** | **16.6 %** | **1548** <sub>± 2</sub> | 6,532 | 72,377 |
+| 🥈 | **RL** | **6.442** <sub>± 0.029</sub> | −0.36 | 29.0 % | 18.2 % | **1532** <sub>± 2</sub> | 6,564 | 72,901 |
+| 🥉 | rule-hard | 6.806 <sub>± 0.031</sub> | +0.00 | 25.2 % | 26.1 % | 1496 <sub>± 2</sub> | 6,618 | 73,687 |
+| 4 | rule-medium | 7.210 <sub>± 0.032</sub> | +0.41 | 21.4 % | 31.8 % | 1469 <sub>± 2</sub> | 6,520 | 72,429 |
+| 5 | rule-easy | 7.358 <sub>± 0.032</sub> | +0.55 | 18.5 % | 33.1 % | 1456 <sub>± 1</sub> | 6,534 | 72,506 |
 
 <div align="center">
 <sub>
@@ -41,18 +41,24 @@ method produced against a field containing `RL` and the rule tiers.
 
 | Column | Meaning |
 | --- | --- |
-| **Deal** | one hand: thirteen tricks, dealt and played out. A deal hands out **26 penalty points** — one for each heart, thirteen for the queen of spades. Four seats share them, so a seat that neither gains nor loses on the field averages **6.5**. |
-| **Penalty / deal** | the average points this entry took per deal. **Lower is better** — this is what Hearts itself counts, not a reward this environment invented. |
-| **vs field** | the same figure minus the field's own average, **6.77**. Negative means the entry takes fewer points than the table around it, which is the only comparison that survives a change of opponents. |
-| **Elo** | a rating fitted from every table's six seat-versus-seat pairings, won by the lower score. It says who beats whom; the points column says by how much. |
-| **Games** | four-seat tables this entry sat at. Each game runs 220 events, which settles **four deals**. |
-| **Deals** | deals actually played from that seat — the sample the error is computed over. |
+| **Deal** | one hand: thirteen tricks, dealt and played out. A deal hands out **26 penalty points** — one per heart, thirteen for the queen of spades — so four seats average **6.5** each. |
+| **Match** | a `classic-v0` game, played until someone reaches **100 points**. That takes about eleven deals, and the lowest cumulative score wins. Matches here are played to the end, so the endgame near 100 counts. |
+| **Penalty / deal** | average points this entry took per deal. **Lower is better** — this is what Hearts itself counts, not a reward this environment invented. |
+| **vs field** | the same figure minus the field's average of **6.80**. Negative means the entry takes fewer points than the table around it. |
+| **Won** | share of matches finished with the lowest cumulative score. Ties count for everyone tied, so the column sums above 100 %. |
+| **Last** | share of matches finished with the **highest** score. A policy can win often and still collapse often; these two columns separate steady play from streaky play. |
+| **Elo** | fitted from every match's six seat-versus-seat pairings, won by the lower final score. It says who beats whom; the points column says by how much. |
+| **Matches / Deals** | the sample each figure is computed over. |
 
-The field averages 6.77 rather than 6.5 because a shot moon pays 78 points
-instead of 26. Every rank here is separated: the closest pair, `rule-medium` to
-`rule-easy`, differs by 0.15 against a combined error of 0.066, and the rule
+The field averages 6.80 rather than 6.5 because a shot moon pays 78 points
+instead of 26. Every rank is separated — the closest pair, `rule-medium` to
+`rule-easy`, differs by 0.15 against a combined error of 0.045 — and the rule
 tiers land in their designed order, which is a check on the measurement as much
 as on them.
+
+`PSRO` and `RL` are close on points but further apart on **Last**: 16.6 % versus
+18.2 %. The population method's edge is as much in avoiding disasters as in
+winning outright.
 
 > **Read it honestly.** This field is close to what `PSRO` trained against, so
 > the league flatters it. On a different measurement — each policy seated

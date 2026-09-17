@@ -27,9 +27,11 @@ import numpy as np
 import heart
 from heart.cards import NUM_CARDS, NUM_PLAYERS, QUEEN_OF_SPADES
 from heart.classic import (
+    MAX_CLASSIC_CORE_STEPS,
     NUM_PASS_ACTIONS,
     PASS,
     PASS_COMBINATIONS,
+    TERMINAL,
     ClassicState,
     observe_classic,
 )
@@ -223,9 +225,11 @@ class Standing:
     name: str
     points: float
     stderr: float
+    win_rate: float
+    last_rate: float
     elo: float
     elo_stderr: float
-    tables: int
+    matches: int
     deals: int
     flops_per_decision: float
 
@@ -260,11 +264,11 @@ def _fit_elo(count, left, right, outcome, *, passes: int = 300) -> np.ndarray:
     return ratings
 
 
-def _pairings(seating: np.ndarray, points: np.ndarray):
-    """Every table becomes its six seat-versus-seat comparisons.
+def _pairings(seating: np.ndarray, scores: np.ndarray):
+    """Every match becomes its six seat-versus-seat comparisons.
 
-    Hearts is won by the lowest score, so the seat with fewer penalty points
-    takes the pairing.
+    Hearts is won by the lowest score, so the seat that finished the match with
+    fewer penalty points takes the pairing.
     """
 
     left, right, outcome = [], [], []
@@ -272,7 +276,7 @@ def _pairings(seating: np.ndarray, points: np.ndarray):
         for second in range(first + 1, NUM_PLAYERS):
             left.append(seating[:, first])
             right.append(seating[:, second])
-            gap = points[:, second] - points[:, first]
+            gap = scores[:, second] - scores[:, first]
             outcome.append(np.where(gap > 0, 1.0, np.where(gap < 0, 0.0, 0.5)))
     return (
         np.concatenate(left),
@@ -282,6 +286,9 @@ def _pairings(seating: np.ndarray, points: np.ndarray):
 
 
 def _league_rollout(entries: list[Submission], batch: int, steps: int):
+    """Play whole matches: a classic-v0 match runs to 100 points, which takes
+    around ten deals, so a truncated scan would never reach its endgame."""
+
     env = _classic_env()
     reset = jax.vmap(env.reset)
     advance = jax.vmap(env.step)
@@ -292,7 +299,7 @@ def _league_rollout(entries: list[Submission], batch: int, steps: int):
         states, _ = reset(keys)
 
         def once(carry, _):
-            state, points, deals = carry
+            state, deals = carry
             players = state.active_player.astype(jnp.int32)
             observations = jax.vmap(encode_observation)(state, players)
             passes = jnp.stack([entry.call(observations)[0] for entry in entries])
@@ -311,25 +318,20 @@ def _league_rollout(entries: list[Submission], batch: int, steps: int):
                 jnp.argmax(play_logits, -1),
             )
             following, _, _, _, info = advance(state, actions.astype(jnp.int32))
-            # The league counts the game's own currency: penalty points. A
-            # reward is this environment's normalisation of them, and a
-            # leaderboard should not depend on that choice.
-            settled = info.deal_completed[:, None]
-            points = points + jnp.where(
-                settled, following.last_deal_scores.astype(jnp.float32), 0.0
-            )
-            return (following, points, deals + info.deal_completed), None
+            return (following, deals + info.deal_completed), None
 
-        (_, points, deals), _ = jax.lax.scan(
-            once,
-            (
-                states,
-                jnp.zeros((batch, NUM_PLAYERS), jnp.float32),
-                jnp.zeros((batch,), jnp.int32),
-            ),
-            jnp.arange(steps),
+        (final, deals), _ = jax.lax.scan(
+            once, (states, jnp.zeros((batch,), jnp.int32)), jnp.arange(steps)
         )
-        return points, deals
+        # The league counts the game's own currency: penalty points, and the
+        # match those points decide. A reward is this environment's
+        # normalisation of them, so a leaderboard should not depend on it.
+        return (
+            final.match_scores.astype(jnp.float32),
+            deals,
+            final.winner_mask,
+            final.phase == TERMINAL,
+        )
 
     return run
 
@@ -339,7 +341,7 @@ def run_league(
     *,
     lineups: int = 256,
     rounds: int = 4,
-    steps: int = 220,
+    steps: int = MAX_CLASSIC_CORE_STEPS,
     seed: int = 0,
     bootstrap: int = 16,
 ) -> list[Standing]:
@@ -358,6 +360,8 @@ def run_league(
     rng = np.random.default_rng(seed)
     collected: dict[int, list[float]] = {index: [] for index in range(len(entries))}
     dealt: dict[int, int] = dict.fromkeys(range(len(entries)), 0)
+    won: dict[int, int] = dict.fromkeys(range(len(entries)), 0)
+    lost: dict[int, int] = dict.fromkeys(range(len(entries)), 0)
     pairings: list[tuple] = []
 
     for round_index in range(rounds):
@@ -366,16 +370,25 @@ def run_league(
         )
         seating = np.roll(seating, round_index, axis=1)
         keys = jax.random.split(jax.random.key(seed + round_index), lineups)
-        points, deals = jax.device_get(rollout(keys, jnp.asarray(seating)))
-        points, deals = np.asarray(points), np.asarray(deals)
-        settled = deals > 0
-        per_deal = np.divide(points, np.maximum(deals, 1)[:, None], dtype=np.float64)
-        pairings.append(_pairings(seating[settled], per_deal[settled]))
+        scores, deals, winners, over = (
+            np.asarray(part)
+            for part in jax.device_get(rollout(keys, jnp.asarray(seating)))
+        )
+        if not over.all():
+            raise RuntimeError(
+                f"{int((~over).sum())} matches did not finish in {steps} events"
+            )
+        per_deal = np.divide(scores, np.maximum(deals, 1)[:, None], dtype=np.float64)
+        # Hearts is won by the lowest score, so the highest finishes last.
+        losers = scores == scores.max(axis=1, keepdims=True)
+        pairings.append(_pairings(seating, scores.astype(np.float64)))
         for seat in range(NUM_PLAYERS):
             for index in range(len(entries)):
-                chosen = settled & (seating[:, seat] == index)
+                chosen = seating[:, seat] == index
                 if chosen.any():
                     collected[index].extend(per_deal[chosen, seat])
+                    won[index] += int(winners[chosen, seat].sum())
+                    lost[index] += int(losers[chosen, seat].sum())
                     dealt[index] += int(deals[chosen].sum())
 
     left = np.concatenate([pair[0] for pair in pairings])
@@ -413,6 +426,8 @@ def run_league(
                 entry.name,
                 mean,
                 error,
+                won[index] / max(values.size, 1),
+                lost[index] / max(values.size, 1),
                 float(ratings[index]),
                 float(spread[index]),
                 int(values.size),
