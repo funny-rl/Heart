@@ -47,7 +47,8 @@ def test_thirteen_agent_decisions_complete_fifty_two_card_plays():
     assert int(state.game.num_cards_played) == 52
     assert bool(state.game.terminated)
     scores = np.asarray(state.game.scores, dtype=np.float32)
-    expected = (scores.sum() - scores[2]) / 3 - scores[2]
+    total_points = 13 + env.core.rules.queen_of_spades_penalty
+    expected = ((scores.sum() - scores[2]) / 3 - scores[2]) / total_points
     assert terminal_reward == pytest.approx(float(expected))
 
 
