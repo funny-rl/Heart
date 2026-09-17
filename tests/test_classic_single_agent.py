@@ -183,3 +183,40 @@ def test_classic_factory_accepts_numpy_integer_players(integer_type):
 def test_explicit_empty_phase_opponents_are_not_silently_replaced():
     with pytest.raises(ValueError, match="exactly three"):
         heart.make_single_agent("classic-v0", pass_opponents=[])
+
+
+def test_the_play_layout_describes_the_deal_being_passed():
+    """Every deal, not only the first one and not only the held deals.
+
+    `reset` lays out both hands whatever phase the deal opens in, but the
+    refresh that ran on later deals only laid out the play hand when the deal
+    opened straight into play. A deal that opened into passing therefore
+    carried the previous deal's layout until the pass landed, so the same slot
+    meant one card at the first decision of a deal and another at the second.
+    """
+
+    env = heart.make_single_agent("classic-v0", controlled_player=2, opponents="easy")
+    step = jax.jit(env.step)
+    state, observation = env.reset(jax.random.key(3))
+
+    passing_deals = 0
+    seen_deal = -1
+    for _ in range(200):
+        passing = int(state.match.phase) == heart.PASS
+        if passing:
+            # Only while passing: once play begins a slot deliberately holds
+            # the card that was played out of it, which is the other half of
+            # the contract and is covered elsewhere.
+            held = np.sort(np.flatnonzero(np.asarray(state.match.game.hands[2])))
+            shown = np.sort(np.asarray(observation.play_hand_cards))
+            np.testing.assert_array_equal(shown, held)
+            if int(state.match.deal_index) != seen_deal:
+                seen_deal = int(state.match.deal_index)
+                passing_deals += 1
+        mask = observation.pass_action_mask if passing else observation.play_action_mask
+        state, observation, _, done, _ = step(state, jnp.int32(jnp.argmax(mask)))
+        if bool(done):
+            break
+
+    # The first deal was never the broken one; a later passing deal is the test.
+    assert passing_deals >= 2

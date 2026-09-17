@@ -35,6 +35,16 @@ separately version game semantics.
   plugin-supplied learned policies, over a local single-match HTTP server
   with a browser page, mask-checked actions, and JIT-compiled turns.
 
+### Fixed
+
+- `classic-v0` single-agent: `play_hand_cards` described the previous deal
+  while a deal was still being passed. `reset` lays out both hands whatever
+  phase a deal opens in, but the refresh that ran on later deals only laid out
+  the play hand when a deal opened straight into play, so from the second deal
+  on a passing deal carried the layout before it. No action changed — the play
+  head is ignored throughout the passing phase and the passing head does not
+  read that field — but the observation now says what it claims to.
+
 ### Changed
 
 - Human play deals the table one action at a time through `/advance`, so

@@ -127,12 +127,10 @@ seat's own hand, laid out as thirteen slots.
 
 **Hand slots hold still for a deal.** A card that is played leaves its slot
 behind and the mask hides it, so slot 4 means the same card on every turn of a
-deal. `play_hand_cards` is refreshed once passing has handed the cards over —
-or, in a deal that skips passing, when the deal opens. While a deal is still
-being passed it therefore still holds the **previous** deal's layout, which
-costs nothing, since the play head is ignored until the passing phase ends.
-Read the hand you are about to play from `play_hand_cards`, and the hand you
-are passing from `pass_hand_cards`.
+deal. Both layouts are laid out afresh when a deal opens, and `play_hand_cards`
+again once passing has handed the cards over — so it always describes the deal
+in front of you. Read the hand you are about to play from `play_hand_cards`,
+and the hand you are passing from `pass_hand_cards`.
 
 The play head chooses a **slot**, not a card, which is the environment's own
 action space — and it lets a set-equivariant policy answer per card without

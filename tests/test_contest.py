@@ -235,10 +235,11 @@ def test_the_league_shows_a_seat_what_the_adapter_shows_a_learner():
     """The contract is the environment's interface only if it reproduces it.
 
     The league builds observations itself rather than driving the adapter, so
-    the two can drift. They did: the adapter refreshes the play layout when a
-    deal opens into play, and holds the previous deal's layout while a deal is
-    still being passed. Anything cleaner is a second convention, which is the
-    one thing this contract exists to avoid.
+    the two can drift, and they did: the league refreshed the play layout on
+    every new deal while the adapter held the previous deal's layout through a
+    passing phase. The adapter was the one in the wrong, but either way a
+    contract that matches the environment in every phase but one is a second
+    convention wearing the first one's name.
     """
 
     seat = 0

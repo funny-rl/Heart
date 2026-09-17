@@ -331,24 +331,22 @@ def _carry_layouts(
 ):
     """Age the seats' slot layouts by one event, the way the adapter does.
 
-    The adapter's own rule, reproduced rather than tidied: a layout is
-    refreshed when a deal opens, and again once passing has handed the cards
-    over. A deal that opens into passing does not refresh the play layout yet,
-    so the play head reads the previous deal until the pass lands. That head is
-    ignored throughout the passing phase, which is why the staleness is
-    invisible -- and reproducing it exactly is what keeps this the
-    environment's interface rather than a cleaner cousin of it.
+    Both layouts are refreshed when a deal opens, and the play layout again
+    once passing has handed the cards over. This has to reproduce the adapter
+    rather than improve on it: a contract that is the environment's interface
+    everywhere except one phase is a second convention wearing the first one's
+    name. `test_the_league_shows_a_seat_what_the_adapter_shows_a_learner`
+    holds the two together.
     """
 
     fresh = jax.vmap(_slots)(following)
     new_deal = (following.deal_index != state.deal_index)[:, None, None]
-    opened_into_play = new_deal & (following.phase == PLAY)[:, None, None]
     after_pass = ((state.phase == PASS) & (following.phase == PLAY))[
         :, None, None
     ] & ~new_deal
     return (
         jnp.where(new_deal, fresh, pass_hands),
-        jnp.where(opened_into_play | after_pass, fresh, play_hands),
+        jnp.where(new_deal | after_pass, fresh, play_hands),
     )
 
 

@@ -143,12 +143,13 @@ class ClassicSingleAgentEnv:
         current = _hand_cards(after, self.controlled_player)
         new_deal = after.deal_index != before.deal_index
         completed_pass = (before.phase == PASS) & (after.phase == PLAY) & ~new_deal
+        # Both layouts are refreshed when a deal opens, and the play layout
+        # again once passing has handed the cards over. `reset` refreshes both
+        # whatever the opening phase is, so a deal that opens into passing used
+        # to be the one case where the play layout still described the deal
+        # before it.
         pass_hand = jnp.where(new_deal, current, pass_hand)
-        play_hand = jnp.where(
-            new_deal & (after.phase == PLAY),
-            current,
-            jnp.where(completed_pass, current, play_hand),
-        )
+        play_hand = jnp.where(new_deal | completed_pass, current, play_hand)
         return pass_hand, play_hand
 
     def _advance(
