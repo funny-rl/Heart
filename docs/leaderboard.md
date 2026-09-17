@@ -1,12 +1,56 @@
 <div align="center">
 
-# HEART Leaderboard
+# 🏆 HEART Leaderboard
 
 **Submit a policy as a computation graph. Any architecture, no code on the host.**
 
-[Contract](#the-contract) · [Observation](#what-a-policy-sees) · [Budgets](#budgets) · [Build an entry](#build-an-entry) · [Ranking](#how-entries-are-ranked) · [Standings](#standings)
+[Standings](#standings) · [Contract](#the-contract) · [Observation](#what-a-policy-sees) · [Budgets](#budgets) · [Build an entry](#build-an-entry) · [Ranking](#how-entries-are-ranked)
 
 </div>
+
+---
+
+## Standings
+
+<div align="center">
+
+### 🥇 &nbsp; PSRO &nbsp; — &nbsp; `1531` Elo
+
+<sub>8,192 tables · rotating seats · shared deals · every rank separated</sub>
+
+</div>
+
+| | Entry | Elo | | Deal reward | Seats |
+|:--:|---|--:|:--|--:|--:|
+| 🥇 | **PSRO** | **1531** <sub>± 2</sub> | `███████████` | **+0.0308** <sub>± 0.0022</sub> | 6,532 |
+| 🥈 | **RL** | **1516** <sub>± 2</sub> | `█████████` | **+0.0148** <sub>± 0.0021</sub> | 6,564 |
+| 🥉 | rule-hard | 1499 <sub>± 2</sub> | `██████` | −0.0007 <sub>± 0.0023</sub> | 6,618 |
+| 4 | rule-medium | 1482 <sub>± 2</sub> | `███` | −0.0186 <sub>± 0.0023</sub> | 6,520 |
+| 5 | rule-easy | 1471 <sub>± 2</sub> | `█` | −0.0263 <sub>± 0.0023</sub> | 6,534 |
+
+<div align="center">
+<sub>
+
+`RL` — recurrent PPO trained on its own &nbsp;•&nbsp; `PSRO` — best response to a population containing `RL` and the rule tiers
+
+</sub>
+</div>
+
+Rewards sum to **−0.0001**, as a zero-sum field must. Every rank is separated:
+the closest pair, `rule-medium` to `rule-easy`, differs by 0.008 against a
+combined error of 0.003.
+
+> **Read it honestly.** This field is close to what `PSRO` trained against, so
+> the league flatters it. On a different measurement — each policy seated
+> against three copies of one rule tier — `RL` finishes ahead of `PSRO` by about
+> 0.01 on all three tiers. Both numbers are real and they answer different
+> questions: how a policy fares *in this field*, and how it generalises to
+> opponents it never met. A leaderboard answers only the first.
+
+<sub>The five entries above are this project's own policies. They read richer
+observations than this contract offers and so cannot be submitted through it;
+they are ranked by the same statistics and are here to show a populated table.
+Submitted entries will appear alongside them.</sub>
 
 ---
 
@@ -142,37 +186,3 @@ from heart.contest import run_league
 for standing in run_league(entries, lineups=2048, rounds=8, seed=0):
     print(standing.rank, standing.name, standing.elo, standing.reward)
 ```
-
-## Standings
-
-Measured over 8,192 tables, seats rotating, every round dealt from a shared
-seed. `RL` is a recurrent PPO policy trained on its own; `PSRO` is the best
-response the population method produced against a mixture that included `RL`
-and the rule tiers.
-
-| Rank | Entry | Elo | Deal reward | Seats |
-| ---: | --- | ---: | ---: | ---: |
-| 1 | **PSRO** | **1531 ± 2** | **+0.0308 ± 0.0022** | 6,532 |
-| 2 | RL | 1516 ± 2 | +0.0148 ± 0.0021 | 6,564 |
-| 3 | rule-hard | 1499 ± 2 | −0.0007 ± 0.0023 | 6,618 |
-| 4 | rule-medium | 1482 ± 2 | −0.0186 ± 0.0023 | 6,520 |
-| 5 | rule-easy | 1471 ± 2 | −0.0263 ± 0.0023 | 6,534 |
-
-Rewards sum to −0.0001, as a zero-sum field must. Every rank is separated: the
-smallest gap, `rule-medium` to `rule-easy`, is 0.008 against a combined error of
-0.003.
-
-### Reading it honestly
-
-This field is close to what `PSRO` was trained against — a mixture of the rule
-tiers and `RL` — so the league flatters it. On a different measurement, each
-policy seated against three copies of one rule tier, `RL` finishes ahead of
-`PSRO` by about 0.01 on all three tiers. Both numbers are real and they measure
-different things: how a policy fares in this mixed field, and how it generalises
-to opponents it did not train on. A leaderboard answers the first question only.
-
-The five entries above are the project's own policies, which read richer
-observations than this contract offers and so cannot be submitted through it.
-They are ranked by the same statistics, and they are here to show what a
-populated table looks like. Submitted entries will appear alongside them once
-the field is open.
