@@ -170,6 +170,32 @@ def test_page_script_has_no_string_broken_across_lines():
             )
 
 
+def test_table_is_swept_before_the_person_leads():
+    """Leading into the previous trick's cards misreads the board."""
+
+    from heart.render import _visible_trick
+
+    game = _ready(seats=_opponents(), seed=5)
+    for _ in range(80):
+        if game.finished:
+            break
+        if int(game.state.phase) == PASS:
+            game.play_human(pass_action_for([0, 1, 2]))
+            game.advance()
+            continue
+        proxy = game.state.game._replace(active_player=game.state.active_player)
+        _, _, settled = _visible_trick(proxy)
+        if settled and game.waiting_for_human:
+            assert game.snapshot()["view"].count('class="trick-card') == 4
+            swept = game.snapshot(sweep=True)
+            assert swept["view"].count('class="trick-card') == 0
+            assert not swept["settling"]
+            return
+        game.play_human(game.legal_plays()[0])
+        game.advance()
+    raise AssertionError("never reached a trick the person had to lead")
+
+
 def _request(url, payload=None):
     data = None if payload is None else json.dumps(payload).encode()
     headers = {} if data is None else {"content-type": "application/json"}

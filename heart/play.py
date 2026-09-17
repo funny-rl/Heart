@@ -226,12 +226,20 @@ class HumanGame:
         mask = np.asarray(jax.device_get(observation.play_action_mask))
         return [int(card) for card in np.flatnonzero(mask)]
 
-    def snapshot(self) -> dict:
+    def snapshot(self, *, sweep: bool = False) -> dict:
+        """One frame for the page.
+
+        ``sweep`` clears a trick that has already been decided, which is what
+        the person needs when they are about to lead the next one.
+        """
+
         scores = np.asarray(jax.device_get(self.state.match_scores)).tolist()
         proxy = self.state.game._replace(active_player=self.state.active_player)
         _, leader, settling = _visible_trick(proxy)
         payload = {
-            "view": render_classic_html(self.state, self.human_seat),
+            "view": render_classic_html(
+                self.state, self.human_seat, show_settled_trick=not sweep
+            ),
             "phase": int(self.state.phase),
             "finished": self.finished,
             "your_turn": self.waiting_for_human,
@@ -239,7 +247,7 @@ class HumanGame:
             "pending": self.pending,
             "active": int(self.state.active_player),
             "leader": int(leader),
-            "settling": bool(settling),
+            "settling": bool(settling) and not sweep,
             "scores": [int(value) for value in scores],
             "deal": int(self.state.deal_index),
             "log": self.log[-12:],
@@ -453,7 +461,7 @@ def make_handler(game: HumanGame, lock: threading.Lock):
                 self._send(PAGE.encode("utf-8"), "text/html; charset=utf-8")
             elif self.path == "/state":
                 with lock:
-                    self._json(game.snapshot())
+                    self._json(game.snapshot(sweep=game.waiting_for_human))
             else:
                 self._send(b"not found", "text/plain; charset=utf-8", 404)
 
@@ -477,6 +485,10 @@ def make_handler(game: HumanGame, lock: threading.Lock):
                             if not game.advance_once():
                                 break
                             frames.append(game.snapshot())
+                        if frames and frames[-1]["settling"] and game.waiting_for_human:
+                            # Hold the decided trick, then sweep it before the
+                            # person leads into an empty table.
+                            frames.append(game.snapshot(sweep=True))
                         if "steps" in body:
                             self._json({"frames": frames})
                             return
@@ -495,7 +507,7 @@ def make_handler(game: HumanGame, lock: threading.Lock):
                         400,
                     )
                     return
-                self._json(game.snapshot())
+                self._json(game.snapshot(sweep=game.waiting_for_human))
 
     return Handler
 

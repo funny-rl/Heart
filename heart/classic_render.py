@@ -105,7 +105,12 @@ def _pass_flow_html(state: ClassicState, viewer: int | None = None) -> str:
     )
 
 
-def render_classic_html(state: ClassicState, viewer: int | None = 0) -> str:
+def render_classic_html(
+    state: ClassicState,
+    viewer: int | None = 0,
+    *,
+    show_settled_trick: bool = True,
+) -> str:
     """Return a standalone classic match snapshot with inter-deal context."""
 
     state = device_get(state)
@@ -115,6 +120,7 @@ def render_classic_html(state: ClassicState, viewer: int | None = 0) -> str:
         viewer,
         reward_override=np.asarray(state.last_deal_rewards),
         winner_override=np.asarray(state.winner_mask),
+        show_settled_trick=show_settled_trick,
     ).replace("누적 벌점", "이번 딜")
     if int(state.phase) == PASS:
         rendered = rendered.replace(" legal", "")

@@ -93,6 +93,7 @@ def render_html(
     *,
     reward_override: np.ndarray | None = None,
     winner_override: np.ndarray | None = None,
+    show_settled_trick: bool = True,
 ) -> str:
     """Return an HTML game-table snapshot from one seat's point of view.
 
@@ -100,6 +101,10 @@ def render_html(
     up; the other three are drawn face down with their true card counts.
     ``None`` selects the omniscient spectator view, which reveals every hand and
     anchors player 0 at the bottom.
+
+    A just-completed trick is redrawn so it can be read before it is swept away.
+    ``show_settled_trick=False`` clears it instead, which is what a player about
+    to lead the next trick should see.
     """
 
     if viewer is not None and not 0 <= viewer < NUM_PLAYERS:
@@ -181,6 +186,8 @@ def render_html(
 
     trick_html: list[str] = []
     visible_trick, leader, previous_trick = _visible_trick(state)
+    if previous_trick and not show_settled_trick:
+        visible_trick = np.full_like(np.asarray(visible_trick), -1)
     for offset, raw_card in enumerate(visible_trick):
         card = int(raw_card)
         if card < 0:
