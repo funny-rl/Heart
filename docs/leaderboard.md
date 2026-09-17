@@ -45,8 +45,8 @@ method produced against a field containing `RL` and the rule tiers.
 | **Match** | a `classic-v0` game, played until someone reaches **100 points**. That takes about eleven deals, and the lowest cumulative score wins. Matches here are played to the end, so the endgame near 100 counts. |
 | **Penalty / deal** | average points this entry took per deal. **Lower is better** — this is what Hearts itself counts, not a reward this environment invented. |
 | **vs field** | the same figure minus the field's average of **6.80**. Negative means the entry takes fewer points than the table around it. |
-| **Won** | share of matches finished with the lowest cumulative score. Ties count for everyone tied, so the column sums above 100 %. |
-| **Last** | share of matches finished with the **highest** score. A policy can win often and still collapse often; these two columns separate steady play from streaky play. |
+| **Won** | share of **complete matches** whose final cumulative score was the lowest at the table — the game's own definition of winning, not a per-deal count. Ties count for everyone tied, so the column sums above 100 %. |
+| **Last** | share of **complete matches** whose final cumulative score was the **highest** — again per match to 100 points, not per deal. A policy can win often and still collapse often; these two columns separate steady play from streaky play. |
 | **Elo** | fitted from every match's six seat-versus-seat pairings, won by the lower final score. It says who beats whom; the points column says by how much. |
 | **Matches / Deals** | the sample each figure is computed over. |
 

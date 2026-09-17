@@ -225,8 +225,8 @@ class Standing:
     name: str
     points: float
     stderr: float
-    win_rate: float
-    last_rate: float
+    win_rate: float  # complete matches finished on the lowest cumulative score
+    last_rate: float  # complete matches finished on the highest
     elo: float
     elo_stderr: float
     matches: int
