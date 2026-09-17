@@ -312,7 +312,7 @@ select{height:34px;padding:0 8px;border-radius:8px;border:1px solid #39404e;
   <div id="prompt" class="msg">불러오는 중…</div>
   <div id="cards" class="cards"></div>
   <button id="submit" class="go" hidden>3장 넘기기</button>
-  <button id="again" class="go" hidden>새 경기</button>
+  <button id="again" class="go" hidden>경기 초기화</button>
   <div id="log" class="log"></div>
 </div></div><script>
 let picked = [];
@@ -358,7 +358,9 @@ async function pace(s) {
       timer = setTimeout(step, wait);
     }
   };
-  step();
+  // The first reply also waits, so the seat after yours does not answer
+  // the instant your card lands.
+  timer = setTimeout(step, base);
 }
 function draw(s) {
   view.style.opacity = '.62';
@@ -370,7 +372,8 @@ function draw(s) {
   logBox.textContent = (s.log || []).join('\\n');
   cards.replaceChildren();
   submit.hidden = true;
-  again.hidden = !s.finished;
+  again.hidden = false;
+  again.textContent = s.finished ? '새 경기' : '경기 초기화';
   picked = [];
   if (s.finished) {
     if (timer !== null) { clearTimeout(timer); timer = null; }
@@ -418,7 +421,12 @@ async function act(path, body) {
   pace(s);
 }
 submit.onclick = () => act('/action', {slots: picked});
-again.onclick = () => act('/new', {});
+again.onclick = () => {
+  const running = again.textContent === '경기 초기화';
+  if (running && !confirm('진행 중인 경기를 버리고 새 판을 시작할까요?')) return;
+  if (timer !== null) { clearTimeout(timer); timer = null; }
+  act('/new', {});
+};
 fetch('/state').then(r => r.json()).then(s => { draw(s); pace(s); });
 </script></body></html>"""
 
