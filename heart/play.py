@@ -367,7 +367,7 @@ function draw(s) {
   turnBox.innerHTML = s.finished ? ''
     : '선턴 <b>P' + s.leader + '</b> · 차례 P' + s.active
       + (s.settling ? ' · 트릭 정리 중' : '');
-  logBox.textContent = (s.log || []).join('\n');
+  logBox.textContent = (s.log || []).join('\\n');
   cards.replaceChildren();
   submit.hidden = true;
   again.hidden = !s.finished;

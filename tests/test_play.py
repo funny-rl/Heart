@@ -156,6 +156,20 @@ def test_page_calls_every_function_its_script_defines():
     assert not unused, f"script defines but never calls: {unused}"
 
 
+def test_page_script_has_no_string_broken_across_lines():
+    """An unterminated literal kills the whole script, so nothing renders."""
+
+    from heart.play import PAGE
+
+    script = PAGE.split("<script>", 1)[1].split("</script>", 1)[0]
+    for number, line in enumerate(script.splitlines(), 1):
+        without_escapes = re.sub(r"\\.", "", line)
+        for quote in ("'", '"'):
+            assert without_escapes.count(quote) % 2 == 0, (
+                f"line {number} leaves a {quote} string open: {line!r}"
+            )
+
+
 def _request(url, payload=None):
     data = None if payload is None else json.dumps(payload).encode()
     headers = {} if data is None else {"content-type": "application/json"}
