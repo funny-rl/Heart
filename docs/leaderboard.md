@@ -145,16 +145,34 @@ for standing in run_league(entries, lineups=2048, rounds=8, seed=0):
 
 ## Standings
 
-No entries have been submitted yet. The table below shows the shape of a run,
-from a field of the packaged baseline and four untrained networks:
+Measured over 8,192 tables, seats rotating, every round dealt from a shared
+seed. `RL` is a recurrent PPO policy trained on its own; `PSRO` is the best
+response the population method produced against a mixture that included `RL`
+and the rule tiers.
 
 | Rank | Entry | Elo | Deal reward | Seats |
 | ---: | --- | ---: | ---: | ---: |
-| 1 | random-0 | 1511 ± 3 | +0.0091 ± 0.0030 | 3,268 |
-| 1 | random-1 | 1506 ± 2 | +0.0090 ± 0.0030 | 3,317 |
-| 1 | random-3 | 1506 ± 2 | +0.0064 ± 0.0030 | 3,299 |
-| 1 | random-2 | 1505 ± 3 | +0.0038 ± 0.0030 | 3,235 |
-| 5 | baseline | 1472 ± 2 | −0.0285 ± 0.0032 | 3,265 |
+| 1 | **PSRO** | **1531 ± 2** | **+0.0308 ± 0.0022** | 6,532 |
+| 2 | RL | 1516 ± 2 | +0.0148 ± 0.0021 | 6,564 |
+| 3 | rule-hard | 1499 ± 2 | −0.0007 ± 0.0023 | 6,618 |
+| 4 | rule-medium | 1482 ± 2 | −0.0186 ± 0.0023 | 6,520 |
+| 5 | rule-easy | 1471 ± 2 | −0.0263 ± 0.0023 | 6,534 |
 
-Four entries share first place because their intervals overlap; only the
-baseline is separated. A real leaderboard should be read the same way.
+Rewards sum to −0.0001, as a zero-sum field must. Every rank is separated: the
+smallest gap, `rule-medium` to `rule-easy`, is 0.008 against a combined error of
+0.003.
+
+### Reading it honestly
+
+This field is close to what `PSRO` was trained against — a mixture of the rule
+tiers and `RL` — so the league flatters it. On a different measurement, each
+policy seated against three copies of one rule tier, `RL` finishes ahead of
+`PSRO` by about 0.01 on all three tiers. Both numbers are real and they measure
+different things: how a policy fares in this mixed field, and how it generalises
+to opponents it did not train on. A leaderboard answers the first question only.
+
+The five entries above are the project's own policies, which read richer
+observations than this contract offers and so cannot be submitted through it.
+They are ranked by the same statistics, and they are here to show what a
+populated table looks like. Submitted entries will appear alongside them once
+the field is open.
