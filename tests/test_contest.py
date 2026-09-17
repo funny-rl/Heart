@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 import heart
+from heart import contest
 from heart.cards import NUM_CARDS
 from heart.classic import NUM_PASS_ACTIONS, PASS
 from heart.contest import (
@@ -164,3 +165,59 @@ def test_a_host_callback_cannot_be_exported_at_all():
     with pytest.raises(Exception) as refusal:
         _blob(escaping)
     assert not isinstance(refusal.value, AssertionError)
+
+
+def _entry(name, seed, scale=0.1):
+    key_one, key_two, key_three = jax.random.split(jax.random.key(seed), 3)
+    first = jax.random.normal(key_one, (OBSERVATION_DIM, 16)) * scale
+    second = jax.random.normal(key_two, (16, NUM_PASS_ACTIONS)) * scale
+    third = jax.random.normal(key_three, (16, NUM_CARDS)) * scale
+
+    def policy(observations):
+        hidden = jnp.tanh(observations @ first)
+        return hidden @ second, hidden @ third
+
+    return load_submission(_blob(policy), name)
+
+
+def test_the_baseline_entry_satisfies_its_own_contract():
+    entry = load_submission(contest.baseline_blob(), "baseline")
+    assert entry.flops_per_decision < contest.MAX_FLOPS_PER_DECISION
+    passes, plays = entry.call(jnp.zeros((5, OBSERVATION_DIM), jnp.float32))
+    assert passes.shape == (5, NUM_PASS_ACTIONS)
+    assert plays.shape == (5, NUM_CARDS)
+
+
+def test_a_league_ranks_every_entry_and_conserves_reward():
+    entries = [
+        load_submission(contest.baseline_blob(), "baseline"),
+        _entry("alpha", 1),
+        _entry("beta", 2),
+        _entry("gamma", 3),
+    ]
+    table = contest.run_league(entries, lineups=32, rounds=2, seed=5, bootstrap=3)
+
+    assert {standing.name for standing in table} == {e.name for e in entries}
+    assert [s.rank for s in table] == sorted(s.rank for s in table)
+    assert all(standing.seats > 0 for standing in table)
+    # Deal rewards are zero-sum, so a league of every seat cannot create value.
+    assert abs(sum(standing.reward for standing in table)) < 5e-3
+    # Ratings are centred on the starting rating by construction.
+    average = sum(standing.elo for standing in table) / len(table)
+    assert abs(average - contest.START_RATING) < 1e-6
+    assert all(standing.elo_stderr >= 0 for standing in table)
+
+
+def test_a_league_needs_a_full_table():
+    with pytest.raises(ValueError, match="table"):
+        contest.run_league([_entry("solo", 9)], lineups=8, rounds=1)
+
+
+def test_ratings_follow_the_pairwise_record():
+    """A seat that always finishes ahead must rate above one that never does."""
+
+    left = np.array([0, 0, 0, 1, 1, 2])
+    right = np.array([1, 2, 3, 2, 3, 3])
+    outcome = np.ones(6, np.float64)  # the lower index always wins
+    ratings = contest._fit_elo(4, left, right, outcome)
+    assert list(np.argsort(-ratings)) == [0, 1, 2, 3]

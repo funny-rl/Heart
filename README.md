@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/) [![JAX](https://img.shields.io/badge/JAX-%E2%89%A50.4.38-orange.svg)](https://github.com/jax-ml/jax) [![Version](https://img.shields.io/badge/version-0.1.0-2563eb.svg)](#release-status) [![Status](https://img.shields.io/badge/status-research--preview-f59e0b.svg)](#release-status) [![Citation](https://img.shields.io/badge/cite-CITATION.cff-lightgrey.svg)](CITATION.cff)
 
-[Why HEART](#why-heart) · [Modes](#environment-modes) · [Install](#installation) · [Quickstart](#quickstart) · [Play](#playing-against-the-policies) · [Batching](#batched-rollouts) · [Rendering](#rendering-and-replays) · [Contracts](#core-contracts) · [Documentation](#documentation)
+[Why HEART](#why-heart) · [Modes](#environment-modes) · [Install](#installation) · [Quickstart](#quickstart) · [Play](#playing-against-the-policies) · [Leaderboard](docs/leaderboard.md) · [Batching](#batched-rollouts) · [Rendering](#rendering-and-replays) · [Contracts](#core-contracts) · [Documentation](#documentation)
 
 <img src="docs/assets/rendering/simplest-v0-preview.gif" alt="Five-second HEART simplest-v0 match preview from player 0's seat" width="760">
 
@@ -196,6 +196,16 @@ A seat is a packaged rule tier — `easy`, `medium`, `hard` — or a
 `package.module:factory(argument)` reference returning a `SeatPolicy`, which is
 how a trained checkpoint joins the table without becoming a dependency of this
 package. See the [human play contract](docs/play.md).
+
+## Leaderboard
+
+Policies are submitted as portable computation graphs, so any architecture is
+welcome and the host never imports submitter code. Entries are checked against a
+fixed signature, a size limit, and a per-decision compute budget, then seated
+against each other on shared deals and ranked by Elo and mean deal reward, each
+with its error.
+
+**→ [Submission rules and standings](docs/leaderboard.md)**
 
 ## Train one player
 

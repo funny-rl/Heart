@@ -54,10 +54,13 @@ from heart.classic_single_agent import (
 )
 from heart.contest import (
     OBSERVATION_DIM,
+    Standing,
     Submission,
     SubmissionError,
+    baseline_blob,
     encode_observation,
     load_submission,
+    run_league,
 )
 from heart.env import AVAILABLE_MODES, SIMPLEST_V0, HeartEnv, make
 from heart.gif_render import render_gif_frame, save_gif
@@ -128,9 +131,11 @@ __all__ = [
     "SingleAgentEnv",
     "SingleAgentObservation",
     "SingleAgentState",
+    "Standing",
     "State",
     "Submission",
     "SubmissionError",
+    "baseline_blob",
     "card_id",
     "card_name",
     "encode_observation",
@@ -151,6 +156,7 @@ __all__ = [
     "render_gif_frame",
     "render_html",
     "render_replay_html",
+    "run_league",
     "save_classic_gif",
     "save_classic_html",
     "save_classic_replay_html",
