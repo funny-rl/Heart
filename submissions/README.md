@@ -1,29 +1,26 @@
 # Submissions
 
-One directory per entry, holding the exported policy and who it belongs to:
+**The directory is your team.** Name it after your GitHub handle; it holds the
+policy you exported and a one-line manifest:
 
 ```
 submissions/
-└── your-entry-name/
+└── your-github-handle/
     ├── entry.bin     # the exported graph
-    └── entry.toml    # who made it, and what it is
+    └── entry.toml
 ```
 
-Open a pull request that adds exactly that. CI validates the file on the pull
-request, so a broken entry fails before a human looks at it.
-
-`entry.toml`:
-
 ```toml
-name = "your-entry-name"      # must match the directory
-author = "your github handle"
+name = "clever-passer"        # what the standings call it; optional
 description = "one line: what the policy does"
 ```
 
-**A team holds one entry.** The `author` field identifies it, compared without
-case or a leading `@`, and a pull request adding a second entry under the same
-author is refused. To improve yours, edit the directory you already have —
-replace `entry.bin` and open a pull request. The standings are re-run after a
-merge.
+Open a pull request that adds — or edits — that directory. CI validates the
+entry on the pull request, so a broken file fails before a human looks at it.
 
-Names are lowercase letters, digits and hyphens, 2 to 32 characters.
+**Submitting again replaces what you had.** A second entry writes to the same
+path, so Git records a modification rather than a new row, and the standings are
+re-run after the merge. Two teams may not show the same `name`.
+
+A team directory is 2 to 39 lowercase letters, digits or hyphens. Check yours
+with `python submissions/validate.py`.

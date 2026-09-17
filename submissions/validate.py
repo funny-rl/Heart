@@ -1,4 +1,4 @@
-"""Validate every entry in this directory, or the ones a pull request touched.
+"""Validate the leaderboard entries, or the ones a pull request touched.
 
 Run with no arguments to check them all:
 
@@ -18,44 +18,13 @@ import tomllib
 from heart.contest import SubmissionError, load_submission
 
 ROOT = Path(__file__).parent
-NAME = re.compile(r"^[a-z0-9][a-z0-9-]{1,31}$")
-
-
-def manifest(directory: Path) -> dict:
-    """Read an entry's manifest, or an empty one if it cannot be read."""
-
-    path = directory / "entry.toml"
-    if not path.exists():
-        return {}
-    try:
-        return tomllib.loads(path.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError:
-        return {}
-
-
-def team(declared: dict) -> str:
-    """The name an entry is owned by, compared case- and @-insensitively."""
-
-    return str(declared.get("author", "")).strip().lstrip("@").casefold()
-
-
-def duplicates(directories: list[Path]) -> list[str]:
-    """One entry per team: a second one has to replace the first, not join it."""
-
-    owners: dict[str, list[str]] = {}
-    for directory in directories:
-        owner = team(manifest(directory))
-        if owner:
-            owners.setdefault(owner, []).append(directory.name)
-    return [
-        f"{owner} has {len(entries)} entries ({', '.join(sorted(entries))});"
-        " a team may hold one, so replace it rather than adding another"
-        for owner, entries in sorted(owners.items())
-        if len(entries) > 1
-    ]
+TEAM = re.compile(r"^[a-z0-9][a-z0-9-]{1,38}$")
 
 
 def check(directory: Path) -> list[str]:
+    """Check one team's entry. The directory is the team, so a second
+    submission edits this same path and replaces what was there."""
+
     problems = []
     blob = directory / "entry.bin"
     meta = directory / "entry.toml"
@@ -66,53 +35,72 @@ def check(directory: Path) -> list[str]:
     if problems:
         return problems
 
-    if not NAME.match(directory.name):
+    if not TEAM.match(directory.name):
         problems.append(
-            f"{directory.name}: a name is 2-32 lowercase letters, digits or hyphens"
+            f"{directory.name}: a team directory is 2-39 lowercase letters, digits"
+            " or hyphens, matching your GitHub handle"
         )
     try:
         declared = tomllib.loads(meta.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as error:
         return problems + [f"{directory.name}: entry.toml is not readable: {error}"]
-    for field in ("name", "author", "description"):
-        if not str(declared.get(field, "")).strip():
-            problems.append(f"{directory.name}: entry.toml needs a {field}")
-    if declared.get("name") != directory.name:
-        problems.append(
-            f"{directory.name}: entry.toml names '{declared.get('name')}' instead"
-        )
+    if not str(declared.get("description", "")).strip():
+        problems.append(f"{directory.name}: entry.toml needs a description")
+    display = str(declared.get("name", directory.name)).strip()
+    if not display:
+        problems.append(f"{directory.name}: entry.toml has an empty name")
 
     try:
-        entry = load_submission(blob.read_bytes(), directory.name)
+        entry = load_submission(blob.read_bytes(), display or directory.name)
     except SubmissionError as error:
         return problems + [f"{directory.name}: {error}"]
     print(
-        f"  {directory.name}: {entry.size_bytes:,} bytes, "
+        f"  {directory.name} ({display}): {entry.size_bytes:,} bytes, "
         f"{entry.flops_per_decision:,.0f} flops per decision"
     )
     return problems
 
 
+def clashing_names(directories: list[Path]) -> list[str]:
+    """Two teams showing the same name would be unreadable in the standings."""
+
+    shown: dict[str, list[str]] = {}
+    for directory in directories:
+        meta = directory / "entry.toml"
+        if not meta.exists():
+            continue
+        try:
+            declared = tomllib.loads(meta.read_text(encoding="utf-8"))
+        except tomllib.TOMLDecodeError:
+            continue
+        display = str(declared.get("name", directory.name)).strip().casefold()
+        if display:
+            shown.setdefault(display, []).append(directory.name)
+    return [
+        f"the name '{name}' is used by {', '.join(sorted(teams))}; pick distinct names"
+        for name, teams in sorted(shown.items())
+        if len(teams) > 1
+    ]
+
+
 def main(argv: list[str]) -> int:
+    everything = sorted(path for path in ROOT.iterdir() if path.is_dir())
     if argv:
-        directories = sorted(
-            {
-                ROOT / Path(item).parts[1]
-                for item in argv
-                if Path(item).parts[:1] == ("submissions",)
-                and len(Path(item).parts) > 2
-            }
-        )
+        touched = {
+            ROOT / Path(item).parts[1]
+            for item in argv
+            if Path(item).parts[:1] == ("submissions",) and len(Path(item).parts) > 2
+        }
+        directories = sorted(touched & set(everything))
     else:
-        directories = sorted(p for p in ROOT.iterdir() if p.is_dir())
+        directories = everything
     if not directories:
         print("no entries to check")
         return 0
+
     print(f"checking {len(directories)} entr{'y' if len(directories) == 1 else 'ies'}")
     problems = [problem for directory in directories for problem in check(directory)]
-    # One entry per team is a property of the whole directory, not of the
-    # entries a pull request happens to touch.
-    problems.extend(duplicates(sorted(p for p in ROOT.iterdir() if p.is_dir())))
+    problems.extend(clashing_names(everything))
     for problem in problems:
         print(f"  refused - {problem}", file=sys.stderr)
     return 1 if problems else 0

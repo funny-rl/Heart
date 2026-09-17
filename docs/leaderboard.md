@@ -195,46 +195,45 @@ looks.
 
 ## Sending it in
 
-Entries arrive as a pull request that adds one directory:
+Entries arrive as a pull request. **The directory is your team** — name it after
+your GitHub handle — and it holds the graph you exported plus a one-line
+manifest:
 
 ```
 submissions/
-└── your-entry-name/
+└── your-github-handle/
     ├── entry.bin     # what you exported above
-    └── entry.toml    # name, author, one-line description
+    └── entry.toml
 ```
 
 ```toml
-name = "your-entry-name"      # must match the directory
-author = "your github handle"
+name = "clever-passer"        # what the standings call it; optional, defaults to the directory
 description = "one line: what the policy does"
 ```
 
 1. Fork the repository and create a branch.
-2. Add your directory under `submissions/`.
-3. Run `python submissions/validate.py` — the same check CI runs.
+2. Add — or edit — `submissions/<your-handle>/`.
+3. Run `python submissions/validate.py`, the same check CI runs.
 4. Open the pull request.
 
 CI validates the entry on the pull request, so a malformed file is refused
 before a human looks at it. After a merge the league is re-run and the standings
 above are updated.
 
-### One entry per team
+### Submitting again replaces what you had
 
-A team holds **one** entry at a time, identified by the `author` field —
-compared without case or a leading `@`, so `@Foo` and `foo` are the same team. A
-pull request that adds a second entry under an author who already has one is
-refused, with both directories named.
+A team holds one entry, and that is a property of where the file lives rather
+than a rule anyone has to enforce: your second submission writes to the same
+`submissions/<your-handle>/entry.bin`, so it **replaces** the first. Git records
+it as a modification, the league re-runs, and your row moves. There is no second
+row to retire.
 
-That is not bookkeeping. A team that could enter ten variants would occupy the
-table by volume and make the standings a measure of how many attempts someone
-ran rather than how good a policy is.
+You may rename the entry whenever you like — `name` is only what the standings
+print — but two teams cannot show the same name, since a table nobody can read
+is worse than an awkward name.
 
-**To improve your entry, edit the one you have** — replace `entry.bin` in your
-existing directory and open a pull request. The standings are re-run after the
-merge, and your row moves.
-
-Names are lowercase letters, digits and hyphens, 2 to 32 characters.
+A team directory is 2 to 39 lowercase letters, digits or hyphens, matching the
+shape of a GitHub handle.
 
 ## How entries are ranked
 
