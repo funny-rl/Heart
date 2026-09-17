@@ -235,7 +235,7 @@ class HumanGame:
 
         scores = np.asarray(jax.device_get(self.state.match_scores)).tolist()
         proxy = self.state.game._replace(active_player=self.state.active_player)
-        _, leader, settling = _visible_trick(proxy)
+        trick, leader, settling = _visible_trick(proxy)
         payload = {
             "view": render_classic_html(
                 self.state, self.human_seat, show_settled_trick=not sweep
@@ -248,6 +248,19 @@ class HumanGame:
             "active": int(self.state.active_player),
             "leader": int(leader),
             "settling": bool(settling) and not sweep,
+            "trick": (
+                []
+                if (settling and sweep)
+                else [
+                    {
+                        "seat": (int(leader) + offset) % NUM_PLAYERS,
+                        "card": int(card),
+                        "name": card_name(int(card)),
+                    }
+                    for offset, card in enumerate(np.asarray(trick))
+                    if int(card) >= 0
+                ]
+            ),
             "scores": [int(value) for value in scores],
             "deal": int(self.state.deal_index),
             "log": self.log[-12:],
