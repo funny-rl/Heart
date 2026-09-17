@@ -20,5 +20,10 @@ author = "your github handle"
 description = "one line: what the policy does"
 ```
 
-Names are lowercase letters, digits and hyphens. Replacing your own entry is a
-pull request that edits it; the standings are re-run after a merge.
+**A team holds one entry.** The `author` field identifies it, compared without
+case or a leading `@`, and a pull request adding a second entry under the same
+author is refused. To improve yours, edit the directory you already have —
+replace `entry.bin` and open a pull request. The standings are re-run after a
+merge.
+
+Names are lowercase letters, digits and hyphens, 2 to 32 characters.

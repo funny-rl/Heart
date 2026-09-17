@@ -219,8 +219,22 @@ CI validates the entry on the pull request, so a malformed file is refused
 before a human looks at it. After a merge the league is re-run and the standings
 above are updated.
 
-Names are lowercase letters, digits and hyphens. To replace your own entry, open
-a pull request that edits it.
+### One entry per team
+
+A team holds **one** entry at a time, identified by the `author` field —
+compared without case or a leading `@`, so `@Foo` and `foo` are the same team. A
+pull request that adds a second entry under an author who already has one is
+refused, with both directories named.
+
+That is not bookkeeping. A team that could enter ten variants would occupy the
+table by volume and make the standings a measure of how many attempts someone
+ran rather than how good a policy is.
+
+**To improve your entry, edit the one you have** — replace `entry.bin` in your
+existing directory and open a pull request. The standings are re-run after the
+merge, and your row moves.
+
+Names are lowercase letters, digits and hyphens, 2 to 32 characters.
 
 ## How entries are ranked
 

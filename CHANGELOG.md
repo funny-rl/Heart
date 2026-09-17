@@ -21,7 +21,9 @@ separately version game semantics.
   error, and entries whose intervals overlap share a rank.
 - `submissions/`: entries arrive as a pull request adding one directory with the
   exported graph and a short manifest. `submissions/validate.py` runs the same
-  check CI runs, so a malformed entry is refused before review.
+  check CI runs, so a malformed entry is refused before review. A team holds one
+  entry, identified by its author, so the standings cannot be occupied by
+  volume.
 - `heart.contest.baseline_blob`: a complete valid entry that plays the cheapest
   legal card, both as the floor of the standings and as the shortest example of
   the contract.

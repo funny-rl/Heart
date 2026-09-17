@@ -21,6 +21,40 @@ ROOT = Path(__file__).parent
 NAME = re.compile(r"^[a-z0-9][a-z0-9-]{1,31}$")
 
 
+def manifest(directory: Path) -> dict:
+    """Read an entry's manifest, or an empty one if it cannot be read."""
+
+    path = directory / "entry.toml"
+    if not path.exists():
+        return {}
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError:
+        return {}
+
+
+def team(declared: dict) -> str:
+    """The name an entry is owned by, compared case- and @-insensitively."""
+
+    return str(declared.get("author", "")).strip().lstrip("@").casefold()
+
+
+def duplicates(directories: list[Path]) -> list[str]:
+    """One entry per team: a second one has to replace the first, not join it."""
+
+    owners: dict[str, list[str]] = {}
+    for directory in directories:
+        owner = team(manifest(directory))
+        if owner:
+            owners.setdefault(owner, []).append(directory.name)
+    return [
+        f"{owner} has {len(entries)} entries ({', '.join(sorted(entries))});"
+        " a team may hold one, so replace it rather than adding another"
+        for owner, entries in sorted(owners.items())
+        if len(entries) > 1
+    ]
+
+
 def check(directory: Path) -> list[str]:
     problems = []
     blob = directory / "entry.bin"
@@ -76,6 +110,9 @@ def main(argv: list[str]) -> int:
         return 0
     print(f"checking {len(directories)} entr{'y' if len(directories) == 1 else 'ies'}")
     problems = [problem for directory in directories for problem in check(directory)]
+    # One entry per team is a property of the whole directory, not of the
+    # entries a pull request happens to touch.
+    problems.extend(duplicates(sorted(p for p in ROOT.iterdir() if p.is_dir())))
     for problem in problems:
         print(f"  refused - {problem}", file=sys.stderr)
     return 1 if problems else 0
