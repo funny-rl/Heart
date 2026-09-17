@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/) [![JAX](https://img.shields.io/badge/JAX-%E2%89%A50.4.38-orange.svg)](https://github.com/jax-ml/jax) [![Version](https://img.shields.io/badge/version-0.1.0-2563eb.svg)](#release-status) [![Status](https://img.shields.io/badge/status-research--preview-f59e0b.svg)](#release-status) [![Citation](https://img.shields.io/badge/cite-CITATION.cff-lightgrey.svg)](CITATION.cff)
 
-[Why HEART](#why-heart) · [Modes](#environment-modes) · [Install](#installation) · [Quickstart](#quickstart) · [Batching](#batched-rollouts) · [Rendering](#rendering-and-replays) · [Contracts](#core-contracts) · [Documentation](#documentation)
+[Why HEART](#why-heart) · [Modes](#environment-modes) · [Install](#installation) · [Quickstart](#quickstart) · [Play](#playing-against-the-policies) · [Batching](#batched-rollouts) · [Rendering](#rendering-and-replays) · [Contracts](#core-contracts) · [Documentation](#documentation)
 
 <img src="docs/assets/rendering/simplest-v0-preview.gif" alt="Five-second HEART simplest-v0 match preview from player 0's seat" width="760">
 
@@ -99,18 +99,6 @@ opponent receives `-1` (rotated to the shooter).
 | Moon shot     | Shooter scores 0 for the deal; every opponent scores 26              |
 | Reward timing | Zero within a deal; normalized zero-sum vector at each deal boundary |
 
-## Playing against the policies
-
-```bash
-python -m heart --seat easy --seat medium --seat hard
-```
-
-This serves a local page where you hold one seat of a `classic-v0` match.
-Opponents are the packaged rule tiers, or any `package.module:factory(argument)`
-returning a `SeatPolicy`, which is how a trained checkpoint joins the table
-without becoming a dependency of this package. See the
-[human play contract](docs/play.md).
-
 See the normative [`classic-v0` contract](docs/classic.md) for phase masks,
 reward semantics, the single-learner adapter, and deal-boundary state.
 
@@ -188,6 +176,25 @@ while not bool(state.terminated):
 print("match scores:", state.match_scores)
 print("winners:", state.winner_mask)
 ```
+
+## Playing against the policies
+
+```bash
+python -m heart                                      # three medium opponents
+python -m heart --seat easy --seat medium --seat hard
+python -m heart --human-seat 2 --port 8080 --seed 7
+```
+
+The command prints a local URL. Opening it puts you in one seat of a
+`classic-v0` match: you see your own hand, the other three are face down, and
+the environment checks every move against the same masks the compiled path
+uses. Opponents play one at a time at a speed you pick, a finished trick is
+swept to the seat that won it, and the match can be reset at any point.
+
+A seat is a packaged rule tier — `easy`, `medium`, `hard` — or a
+`package.module:factory(argument)` reference returning a `SeatPolicy`, which is
+how a trained checkpoint joins the table without becoming a dependency of this
+package. See the [human play contract](docs/play.md).
 
 ## Train one player
 
