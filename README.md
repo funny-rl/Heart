@@ -205,6 +205,9 @@ fixed signature, a size limit, and a per-decision compute budget, then seated
 against each other on shared deals and ranked on penalty points per deal, with
 an Elo beside it and an error on both.
 
+Entries arrive as a pull request adding one directory under
+[`submissions/`](submissions/), and CI checks the file before review.
+
 **→ [Submission rules and standings](docs/leaderboard.md)**
 
 ## Train one player

@@ -19,6 +19,9 @@ separately version game semantics.
   the game's own score rather than this environment's normalisation of it — with
   an Elo fitted from the six pairings each table implies. Both carry their
   error, and entries whose intervals overlap share a rank.
+- `submissions/`: entries arrive as a pull request adding one directory with the
+  exported graph and a short manifest. `submissions/validate.py` runs the same
+  check CI runs, so a malformed entry is refused before review.
 - `heart.contest.baseline_blob`: a complete valid entry that plays the cheapest
   legal card, both as the floor of the standings and as the shortest example of
   the contract.

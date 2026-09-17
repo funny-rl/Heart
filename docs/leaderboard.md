@@ -4,7 +4,7 @@
 
 **Submit a policy as a computation graph. Any architecture, no code on the host.**
 
-[Standings](#standings) · [Contract](#the-contract) · [Observation](#what-a-policy-sees) · [Budgets](#budgets) · [Build an entry](#build-an-entry) · [Ranking](#how-entries-are-ranked)
+[Standings](#standings) · [Contract](#the-contract) · [Observation](#what-a-policy-sees) · [Budgets](#budgets) · [Build an entry](#build-an-entry) · [Submit](#sending-it-in) · [Ranking](#how-entries-are-ranked)
 
 </div>
 
@@ -190,6 +190,37 @@ reason listed above.
 `heart.contest.baseline_blob()` returns a complete, valid entry — play the
 cheapest legal card, pass the three highest. It is the floor the standings are
 measured against and the shortest example of the contract in use.
+`submissions/baseline-example/` is that entry, laid out the way a submission
+looks.
+
+## Sending it in
+
+Entries arrive as a pull request that adds one directory:
+
+```
+submissions/
+└── your-entry-name/
+    ├── entry.bin     # what you exported above
+    └── entry.toml    # name, author, one-line description
+```
+
+```toml
+name = "your-entry-name"      # must match the directory
+author = "your github handle"
+description = "one line: what the policy does"
+```
+
+1. Fork the repository and create a branch.
+2. Add your directory under `submissions/`.
+3. Run `python submissions/validate.py` — the same check CI runs.
+4. Open the pull request.
+
+CI validates the entry on the pull request, so a malformed file is refused
+before a human looks at it. After a merge the league is re-run and the standings
+above are updated.
+
+Names are lowercase letters, digits and hyphens. To replace your own entry, open
+a pull request that edits it.
 
 ## How entries are ranked
 
