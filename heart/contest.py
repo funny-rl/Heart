@@ -326,13 +326,38 @@ def _seat_observation(state: ClassicState, player, pass_hand, play_hand):
     )
 
 
+def _carry_layouts(
+    state: ClassicState, following: ClassicState, pass_hands, play_hands
+):
+    """Age the seats' slot layouts by one event, the way the adapter does.
+
+    The adapter's own rule, reproduced rather than tidied: a layout is
+    refreshed when a deal opens, and again once passing has handed the cards
+    over. A deal that opens into passing does not refresh the play layout yet,
+    so the play head reads the previous deal until the pass lands. That head is
+    ignored throughout the passing phase, which is why the staleness is
+    invisible -- and reproducing it exactly is what keeps this the
+    environment's interface rather than a cleaner cousin of it.
+    """
+
+    fresh = jax.vmap(_slots)(following)
+    new_deal = (following.deal_index != state.deal_index)[:, None, None]
+    opened_into_play = new_deal & (following.phase == PLAY)[:, None, None]
+    after_pass = ((state.phase == PASS) & (following.phase == PLAY))[
+        :, None, None
+    ] & ~new_deal
+    return (
+        jnp.where(new_deal, fresh, pass_hands),
+        jnp.where(opened_into_play | after_pass, fresh, play_hands),
+    )
+
+
 def _league_step(entries: list[Submission], batch: int):
     """One event for a batch of matches, compiled on its own.
 
-    The whole rollout was a single `lax.scan` until the fused program began
-    offering actions the rules refuse — every part of it checks out alone and
-    step by step, so the loop stays in Python and each step is compiled, which
-    is slower and gives an answer that can be trusted.
+    The loop over steps stays in Python so that finished matches can be
+    dropped between steps: a terminal match has no legal action left, and
+    stepping it would count a refusal against whichever entry sat there.
     """
 
     env = heart.make("classic-v0")
@@ -359,17 +384,13 @@ def _league_step(entries: list[Submission], batch: int):
         actions = jnp.where(state.phase == PASS, pass_action, card)
         following, _, _, _, info = advance(state, actions)
 
-        # The adapter refreshes a layout when a deal opens, and again once the
-        # passing phase has handed the cards over.
-        fresh = jax.vmap(_slots)(following)
-        new_deal = (following.deal_index != state.deal_index)[:, None, None]
-        after_pass = ((state.phase == PASS) & (following.phase == PLAY))[
-            :, None, None
-        ] & ~new_deal
+        carried_pass, carried_play = _carry_layouts(
+            state, following, pass_hands, play_hands
+        )
         return (
             following,
-            jnp.where(new_deal, fresh, pass_hands),
-            jnp.where(new_deal | after_pass, fresh, play_hands),
+            carried_pass,
+            carried_play,
             info.deal_completed,
             info.invalid_action,
         )

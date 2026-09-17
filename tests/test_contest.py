@@ -229,3 +229,53 @@ def test_hand_slots_hold_still_while_a_deal_is_played():
         layouts.append(np.asarray(observation.play_hand_cards).copy())
     for earlier, later in itertools.pairwise(layouts):
         np.testing.assert_array_equal(earlier, later)
+
+
+def test_the_league_shows_a_seat_what_the_adapter_shows_a_learner():
+    """The contract is the environment's interface only if it reproduces it.
+
+    The league builds observations itself rather than driving the adapter, so
+    the two can drift. They did: the adapter refreshes the play layout when a
+    deal opens into play, and holds the previous deal's layout while a deal is
+    still being passed. Anything cleaner is a second convention, which is the
+    one thing this contract exists to avoid.
+    """
+
+    seat = 0
+    env = heart.make_single_agent(
+        "classic-v0", controlled_player=seat, opponents="easy"
+    )
+    state, observation = env.reset(jax.random.key(7))
+    # The league's carry is driven here, so a change to its rule reaches
+    # this assertion rather than being restated by it.
+    batched = jax.tree.map(lambda leaf: leaf[None], state.match)
+    pass_hands = play_hands = contest._slots(state.match)[None]
+
+    boundaries = 0
+    for _ in range(200):
+        rebuilt = contest._seat_observation(
+            state.match, jnp.int32(seat), pass_hands[0, seat], play_hands[0, seat]
+        )
+        for shown, built in zip(
+            jax.tree.leaves(observation), jax.tree.leaves(rebuilt), strict=True
+        ):
+            np.testing.assert_array_equal(np.asarray(shown), np.asarray(built))
+
+        passing = int(state.match.phase) == heart.PASS
+        mask = observation.pass_action_mask if passing else observation.play_action_mask
+        before = state.match
+        state, observation, _, done, info = env.step(state, jnp.int32(jnp.argmax(mask)))
+        assert not bool(info.core.invalid_action)
+
+        following = jax.tree.map(lambda leaf: leaf[None], state.match)
+        pass_hands, play_hands = contest._carry_layouts(
+            batched, following, pass_hands, play_hands
+        )
+        batched = following
+        if bool(state.match.deal_index != before.deal_index):
+            boundaries += 1
+        if bool(done):
+            break
+
+    # A single deal would never exercise the refresh rule the drift lived in.
+    assert boundaries >= 2
