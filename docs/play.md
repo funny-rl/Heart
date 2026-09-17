@@ -36,10 +36,12 @@ outside this distribution and bring their own dependencies.
 | `/` | GET | — | The play page |
 | `/state` | GET | — | Snapshot |
 | `/action` | POST | `{"slots": [a, b, c]}` or `{"card": id}` | Snapshot |
+| `/advance` | POST | `{}` | Snapshot after one policy action |
 | `/new` | POST | `{}` | Snapshot of a fresh match |
 
 A snapshot carries `view` (a standalone HTML rendering from the person's seat),
-`phase`, `your_turn`, `finished`, `seat`, `scores`, `deal`, `log`, the `hand` as
+`phase`, `your_turn`, `finished`, `seat`, `active`, `leader`, `pending`,
+`settling`, `scores`, `deal`, `log`, the `hand` as
 `{slot, card, name, rank, suit, red}` entries — enough for the page to draw a
 card face — and `legal` card ids during `PLAY`. Finished matches add `winners`.
 
@@ -47,6 +49,19 @@ Rejected actions answer `400` and leave the match untouched: an illegal card, a
 malformed pass selection, and acting out of turn are all refused by the same
 masks the compiled path uses. The server keeps one match and serialises
 requests, so it is a single-player local tool, not a multi-seat lobby.
+
+## Pacing
+
+`/action` applies the person's move and nothing else. Each `/advance` then plays
+exactly one seat, so the caller decides how fast the table moves and every card
+appears in turn instead of three landing at once. `pending` says another policy
+still owes an action; `leader` names who opened the current trick and `active`
+whose turn it is; `settling` marks the frame that shows the completed four-card
+trick before it is cleared, which the page holds roughly twice as long.
+
+The page offers 느리게 / 보통 / 빠르게 / 즉시 and crossfades between frames.
+`HumanGame.advance()` still drains every pending action at once, which is what
+a programmatic caller or a test wants.
 
 ## Latency
 

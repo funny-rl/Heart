@@ -14,6 +14,10 @@ separately version game semantics.
 
 ### Changed
 
+- Human play deals the table one action at a time through `/advance`, so
+  opponents play in turn at a speed the page controls, the completed trick is
+  held before it clears, and the current leader is named.
+
 - Renderers now draw a seat's point of view: an integer `viewer` shows only that
   hand face up, hides the other three behind card backs at their true counts,
   and withholds other seats' `classic-v0` pass selections. `viewer=None` keeps

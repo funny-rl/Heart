@@ -43,6 +43,7 @@ from heart.classic import (
     observe_classic,
 )
 from heart.classic_render import render_classic_html
+from heart.render import _visible_trick
 
 RULE_TIERS = ("easy", "medium", "hard")
 PLUGIN = re.compile(r"^(?P<module>[\w.]+):(?P<attr>\w+)(?:\((?P<argument>.*)\))?$")
@@ -162,7 +163,6 @@ class HumanGame:
         self.key, reset_key = jax.random.split(self.key)
         self.state, _ = ClassicEnv().reset(reset_key)
         self.log = []
-        self.advance()
 
     @property
     def finished(self) -> bool:
@@ -172,14 +172,27 @@ class HumanGame:
     def waiting_for_human(self) -> bool:
         return not self.finished and int(self.state.active_player) == self.human_seat
 
+    @property
+    def pending(self) -> bool:
+        """A policy still owes an action before the person can act again."""
+
+        return not self.finished and not self.waiting_for_human
+
+    def advance_once(self) -> bool:
+        """Play exactly one policy action, so a caller can pace the table."""
+
+        if not self.pending:
+            return False
+        seat = int(self.state.active_player)
+        self.key, action_key = jax.random.split(self.key)
+        self._apply(seat, int(self.seats[seat](self.state, seat, action_key)))
+        return True
+
     def advance(self) -> None:
         """Let the policies act until the person is on turn, or the match ends."""
 
-        while not self.finished and not self.waiting_for_human:
-            seat = int(self.state.active_player)
-            self.key, action_key = jax.random.split(self.key)
-            action = int(self.seats[seat](self.state, seat, action_key))
-            self._apply(seat, action)
+        while self.advance_once():
+            pass
 
     def _apply(self, seat: int, action: int) -> None:
         phase = int(self.state.phase)
@@ -200,7 +213,6 @@ class HumanGame:
         if not self.waiting_for_human:
             raise ValueError("it is not your turn")
         self._apply(self.human_seat, action)
-        self.advance()
 
     def legal_plays(self) -> list[int]:
         observation = _OBSERVE(self.state, self.human_seat)
@@ -209,12 +221,18 @@ class HumanGame:
 
     def snapshot(self) -> dict:
         scores = np.asarray(jax.device_get(self.state.match_scores)).tolist()
+        proxy = self.state.game._replace(active_player=self.state.active_player)
+        _, leader, settling = _visible_trick(proxy)
         payload = {
             "view": render_classic_html(self.state, self.human_seat),
             "phase": int(self.state.phase),
             "finished": self.finished,
             "your_turn": self.waiting_for_human,
             "seat": self.human_seat,
+            "pending": self.pending,
+            "active": int(self.state.active_player),
+            "leader": int(leader),
+            "settling": bool(settling),
             "scores": [int(value) for value in scores],
             "deal": int(self.state.deal_index),
             "log": self.log[-12:],
@@ -241,7 +259,7 @@ PAGE = """<!doctype html><html lang="ko"><head><meta charset="utf-8">
 body{margin:0;background:#0b0d12;color:#e8eaf0;font:15px/1.6 system-ui,sans-serif}
 .wrap{max-width:960px;margin:0 auto;padding:16px}
 h1{font-size:18px;margin:0 0 12px}
-iframe{width:100%;height:560px;border:1px solid #2a2f3a;border-radius:12px;background:#111}
+iframe{width:100%;height:560px;border:1px solid #2a2f3a;border-radius:12px;background:#111;opacity:1;transition:opacity .13s ease}
 .bar{margin-top:14px;padding:14px;border:1px solid #2a2f3a;border-radius:12px;background:#12151c}
 .cards{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 4px;padding-top:12px}
 button.card{position:relative;width:62px;height:88px;padding:0;border-radius:8px;
@@ -262,6 +280,11 @@ button.go{padding:9px 16px;border-radius:9px;border:1px solid #86efac;background
   color:#86efac;font:600 15px system-ui;cursor:pointer}
 button.go:disabled{opacity:.4;cursor:not-allowed}
 .msg{color:#9aa3b2;margin:6px 0 0}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between}
+.turn{font:600 13px ui-monospace,monospace;color:#cbd5e1}
+.turn b{color:#fcd34d}
+select{height:34px;padding:0 8px;border-radius:8px;border:1px solid #39404e;
+  background:#1b202a;color:#e8eaf0;font:600 13px system-ui;cursor:pointer}
 .log{margin-top:10px;font:12px ui-monospace,monospace;color:#8b93a4;white-space:pre-wrap}
 @media(max-width:640px){iframe{height:420px}}
 </style></head><body><div class="wrap">
@@ -275,12 +298,15 @@ button.go:disabled{opacity:.4;cursor:not-allowed}
   <div id="log" class="log"></div>
 </div></div><script>
 let picked = [];
+let timer = null;
 const view = document.getElementById('view');
 const prompt = document.getElementById('prompt');
 const cards = document.getElementById('cards');
 const submit = document.getElementById('submit');
 const again = document.getElementById('again');
 const logBox = document.getElementById('log');
+const turnBox = document.getElementById('turn');
+const speed = document.getElementById('speed');
 
 async function post(path, body) {
   const response = await fetch(path, {method: 'POST',
@@ -288,14 +314,31 @@ async function post(path, body) {
   if (!response.ok) { prompt.textContent = await response.text(); return null; }
   return response.json();
 }
+function pace(s) {
+  if (timer !== null) { clearTimeout(timer); timer = null; }
+  if (!s.pending) return;
+  const base = Number(speed.value);
+  // Hold the completed trick a little longer than an ordinary card.
+  const wait = s.settling ? Math.max(base, 240) * 2 : base;
+  timer = setTimeout(async () => {
+    const next = await post('/advance', {});
+    if (next) draw(next);
+  }, wait);
+}
 function draw(s) {
+  view.style.opacity = '.45';
   view.srcdoc = s.view;
+  setTimeout(() => { view.style.opacity = '1'; }, 70);
+  turnBox.innerHTML = s.finished ? ''
+    : '\uc120\ud134 <b>P' + s.leader + '</b> \u00b7 \ucc28\ub840 P' + s.active
+      + (s.settling ? ' \u00b7 \ud2b8\ub9ad \uc815\ub9ac \uc911' : '');
   logBox.textContent = (s.log || []).join('\\n');
   cards.replaceChildren();
   submit.hidden = true;
   again.hidden = !s.finished;
   picked = [];
   if (s.finished) {
+    if (timer !== null) { clearTimeout(timer); timer = null; }
     const won = (s.winners || []).includes(s.seat);
     prompt.textContent = won ? '이겼습니다.'
       : '경기 종료 — 승자 ' + (s.winners || []).map(p => 'P' + p).join(', ');
@@ -337,6 +380,7 @@ function draw(s) {
 submit.onclick = async () => { const s = await post('/action', {slots: picked});
   if (s) draw(s); };
 again.onclick = async () => draw(await post('/new', {}));
+speed.onchange = () => { if (timer !== null) fetch('/state').then(r => r.json()).then(draw); };
 fetch('/state').then(r => r.json()).then(draw);
 </script></body></html>"""
 
@@ -378,6 +422,8 @@ def make_handler(game: HumanGame, lock: threading.Lock):
                 try:
                     if self.path == "/new":
                         game.reset(game.seed + 1)
+                    elif self.path == "/advance":
+                        game.advance_once()
                     elif self.path == "/action":
                         if "slots" in body:
                             game.play_human(pass_action_for(body["slots"]))
