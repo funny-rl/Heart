@@ -4,6 +4,29 @@ All notable user-facing changes to HEART are recorded here. The project follows
 [Semantic Versioning](https://semver.org/) for package releases; environment IDs
 separately version game semantics.
 
+## [Unreleased]
+
+### Added
+
+- `heart.play`: a person takes one `classic-v0` seat against rule tiers or
+  plugin-supplied learned policies, over a local single-match HTTP server
+  with a browser page, mask-checked actions, and JIT-compiled turns.
+
+### Changed
+
+- Renderers now draw a seat's point of view: an integer `viewer` shows only that
+  hand face up, hides the other three behind card backs at their true counts,
+  and withholds other seats' `classic-v0` pass selections. `viewer=None` keeps
+  the omniscient view. The checked-in preview assets were regenerated.
+
+### Fixed
+
+- Place GIF seat badges from the extent of the cards they label, so a full
+  thirteen-card hand is no longer covered and side badges hold still as
+  cards are played.
+- Correct the stale un-normalized reward expectation in the `simplest-v0`
+  single-learner test left behind by the terminal-reward normalization.
+
 ## [0.1.0] - 2026-09-15
 
 ### Added

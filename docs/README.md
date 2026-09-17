@@ -10,6 +10,7 @@ be reconciled in the same change.
 | Environment API       | `heart/env.py`, `heart/types.py`          | [Environment contract](environment.md) |
 | Game semantics        | `heart/rules.py`, `heart/config.py`       | [`simplest-v0` rules](rules.md)        |
 | Human inspection      | `heart/render.py`, `heart/html_render.py` | [Rendering and replay](rendering.md)   |
+| Human play            | `heart/play.py`                           | [Human play](play.md)                  |
 | Experimental evidence | examples and benchmarks                   | [Reproducibility](reproducibility.md)  |
 | Distribution          | `pyproject.toml`, CI                      | [Release policy](release.md)           |
 

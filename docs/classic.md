@@ -46,7 +46,8 @@ The core event count for one deal is therefore:
 `ClassicObservation.pass_action_mask` has shape `(286,)` and
 `play_action_mask` has shape `(52,)`. Exactly the mask for the current phase and
 actor is enabled. Other players' pass choices and received cards remain private
-in policy observations; full-observability renderers deliberately reveal them.
+in policy observations; the omniscient renderer view (`viewer=None`)
+deliberately reveals them, while a seat view does not.
 
 ## Reward and discounting
 

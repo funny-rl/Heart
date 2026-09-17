@@ -58,17 +58,27 @@ def _terminal_state(state):
     )
 
 
-def test_classic_html_pass_phase_is_full_observability(classic_state):
+def test_classic_html_pass_phase_hides_other_seats(classic_state):
     rendered = heart.render_classic_html(classic_state, viewer=2)
 
     assert "왼쪽 패싱" in rendered
     assert "P2 선택" in rendered
     assert "P2 · 나" in rendered
     assert rendered.count('class="card ') == 52
-    assert "2♣ · 3♣ · 4♣" in rendered
-    assert "2♦ · 3♦ · 4♦" in rendered
+    # Another seat's pass selection is the hidden information of this phase.
+    assert "2♣ · 3♣ · 4♣" not in rendered
+    assert "2♦ · 3♦ · 4♦" not in rendered
+    assert rendered.count("선택 완료") == 2
     assert rendered.count("선택 대기") == 2
     assert " legal" not in rendered
+
+
+def test_classic_html_spectator_view_reveals_pass_selections(classic_state):
+    rendered = heart.render_classic_html(classic_state, viewer=None)
+
+    assert "2♣ · 3♣ · 4♣" in rendered
+    assert "2♦ · 3♦ · 4♦" in rendered
+    assert 'aria-label="뒷면"' not in rendered
 
 
 def test_classic_html_deal_summary_and_pass_flow_do_not_overlap(classic_state):
@@ -122,7 +132,9 @@ def test_classic_ansi_pass_and_deal_summary_semantics(classic_state):
     assert "P2 선택" in passing
     assert "P2 (YOU)" in passing
     assert "Pass choices:" in passing
-    assert "P0=2♣ 3♣ 4♣" in passing
+    assert "P0=?? ?? ??" in passing
+    assert "P0=2♣ 3♣ 4♣" not in passing
+    assert "P0=2♣ 3♣ 4♣" in heart.render_classic_ansi(classic_state, viewer=None)
 
     boundary = heart.render_classic_ansi(_boundary_state(classic_state))
     assert "Last deal: P0=1(+1.00)" in boundary

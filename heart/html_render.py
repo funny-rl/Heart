@@ -41,6 +41,13 @@ def _face(card: int, legal: bool = False, small: bool = False) -> str:
     )
 
 
+def _back(small: bool = False) -> str:
+    """A face-down card, shown for every hand that is not the viewer's."""
+
+    classes = ["card", "back"] + (["small"] if small else [])
+    return f'<div class="{" ".join(classes)}" aria-label="뒷면"></div>'
+
+
 def _captured(state: State, player: int) -> str:
     history = np.asarray(state.trick_history)
     winners = np.asarray(state.trick_winners)
@@ -64,11 +71,12 @@ def render_html(
     reward_override: np.ndarray | None = None,
     winner_override: np.ndarray | None = None,
 ) -> str:
-    """Return a full-observability HTML game-table snapshot.
+    """Return an HTML game-table snapshot from one seat's point of view.
 
-    ``viewer`` only identifies the local player and rotates that seat to the
-    bottom. Every player's hand remains visible. ``None`` selects an unanchored
-    spectator view with player 0 at the bottom.
+    ``viewer`` rotates that seat to the bottom and is the only hand shown face
+    up; the other three are drawn face down with their true card counts.
+    ``None`` selects the omniscient spectator view, which reveals every hand and
+    anchors player 0 at the bottom.
     """
 
     if viewer is not None and not 0 <= viewer < NUM_PLAYERS:
@@ -126,18 +134,21 @@ def render_html(
         )
 
         cards = [int(card) for card in np.flatnonzero(hands[player])]
-        faces = "".join(
-            _face(
-                card,
-                legal=(
-                    player == active
-                    and legal_mask is not None
-                    and bool(legal_mask[card])
-                ),
-                small=seat != "bottom",
+        if viewer is None or player == viewer:
+            faces = "".join(
+                _face(
+                    card,
+                    legal=(
+                        player == active
+                        and legal_mask is not None
+                        and bool(legal_mask[card])
+                    ),
+                    small=seat != "bottom",
+                )
+                for card in cards
             )
-            for card in cards
-        )
+        else:
+            faces = "".join(_back(small=seat != "bottom") for _ in cards)
         if not faces:
             faces = '<div class="empty">패 없음</div>'
         hands_html.append(
@@ -186,7 +197,7 @@ body{{margin:0;min-width:320px;min-height:100vh;display:grid;place-items:center;
 .player strong{{font-size:14px}}.score{{display:flex;align-items:baseline;justify-content:center;gap:6px;color:#d1fae5}}.score em{{font-size:10px;font-style:normal;color:#9fb7ad;text-transform:uppercase;letter-spacing:.05em}}.score b{{font-size:19px;font-variant-numeric:tabular-nums}}.reward{{font-size:11px;font-weight:800;color:#93c5fd}}.player .captured{{display:flex;justify-content:center;gap:7px;min-height:18px}}.player.active{{border-color:#fcd34d;box-shadow:0 0 0 3px #fcd34d38}}.player.winner{{border-color:#86efac;box-shadow:0 0 0 3px #86efac38}}
 .h-token{{color:#fda4af}}.q-token{{color:#e2e8f0}}.seat-top{{top:15px;left:50%;transform:translateX(-50%)}}.seat-bottom{{bottom:135px;left:50%;transform:translateX(-50%)}}.seat-left{{left:16px;top:43%;transform:translateY(-50%)}}.seat-right{{right:16px;top:43%;transform:translateY(-50%)}}
 .hand{{position:absolute;z-index:4;display:flex;justify-content:center;pointer-events:none}}.hand-bottom{{left:50%;bottom:17px;transform:translateX(-50%);width:84%}}.hand-top{{left:50%;top:88px;transform:translateX(-50%);max-width:60%}}.hand-left{{left:86px;top:43%;transform:translateY(-50%);max-width:36%}}.hand-right{{right:86px;top:43%;transform:translateY(-50%);max-width:36%}}
-.card{{position:relative;flex:0 0 62px;width:62px;height:88px;margin-left:-17px;border:1px solid #cbd5e1;border-radius:8px;background:linear-gradient(145deg,#fff,#e8edf4);color:#111827;box-shadow:0 5px 13px #0006}}.card:first-child{{margin-left:0}}.card.red{{color:#d91f45}}.card.legal{{transform:translateY(-9px);border:3px solid #fcd34d;box-shadow:0 8px 18px #0007,0 0 14px #fcd34d99}}.card.small{{flex-basis:39px;width:39px;height:56px;margin-left:-21px}}
+.card{{position:relative;flex:0 0 62px;width:62px;height:88px;margin-left:-17px;border:1px solid #cbd5e1;border-radius:8px;background:linear-gradient(145deg,#fff,#e8edf4);color:#111827;box-shadow:0 5px 13px #0006}}.card:first-child{{margin-left:0}}.card.red{{color:#d91f45}}.card.legal{{transform:translateY(-9px);border:3px solid #fcd34d;box-shadow:0 8px 18px #0007,0 0 14px #fcd34d99}}.card.small{{flex-basis:39px;width:39px;height:56px;margin-left:-21px}}.card.back{{background:repeating-linear-gradient(45deg,#1b3a5c,#1b3a5c 5px,#2a5484 5px,#2a5484 10px);border-color:#7f93ad;box-shadow:0 4px 11px #0007}}
 .corner{{position:absolute;top:6px;left:7px;font:800 13px/12px Georgia,serif}}.symbol{{position:absolute;inset:0;display:grid;place-items:center;font-size:29px}}.small .corner{{top:4px;left:4px;font-size:9px;line-height:8px}}.small .symbol{{font-size:18px}}
 .trick-zone{{position:absolute;z-index:2;left:50%;top:45%;width:260px;height:220px;transform:translate(-50%,-50%)}}.trick-card{{position:absolute}}.trick-card .card{{margin:0}}.trick-card i{{position:absolute;z-index:2;top:-8px;right:-8px;padding:2px 6px;border-radius:9px;background:#0f172a;font-size:10px;font-style:normal;font-weight:800}}.trick-top{{top:0;left:50%;transform:translateX(-50%)}}.trick-bottom{{bottom:0;left:50%;transform:translateX(-50%)}}.trick-left{{left:0;top:50%;transform:translateY(-50%)}}.trick-right{{right:0;top:50%;transform:translateY(-50%)}}.empty{{color:#ffffff91;font-size:13px}}
 @media(max-width:700px){{.game{{width:100vw;padding:7px}}.hud{{margin:4px 8px 9px}}.meta{{display:none}}.table{{min-height:590px;border-width:8px;border-radius:31%}}.card{{flex-basis:46px;width:46px;height:68px;margin-left:-20px}}.corner{{font-size:10px;line-height:9px}}.symbol{{font-size:23px}}.seat-left{{left:5px}}.seat-right{{right:5px}}.trick-zone{{width:210px;height:188px}}}}

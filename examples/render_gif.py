@@ -1,4 +1,4 @@
-"""Generate a compact full-observability GIF of one complete deal."""
+"""Generate a compact GIF of one complete deal from a seat's point of view."""
 
 from __future__ import annotations
 

@@ -61,7 +61,7 @@ def test_gif_frame_draws_completed_trick_at_boundaries(
         drawn.append(int(card))
 
     monkeypatch.setattr(renderer, "_card", record)
-    renderer.render_gif_frame(state)
+    renderer.render_gif_frame(state, viewer=None)
 
     hand_count = int(np.asarray(state.hands).sum())
     expected = [int(card) for card in np.asarray(state.trick_history)[history_index]]

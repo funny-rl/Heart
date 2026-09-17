@@ -45,9 +45,10 @@ def _cards_text(cards: np.ndarray) -> str:
 
 
 def render_ansi(state: State, viewer: int | None = None) -> str:
-    """Render one full-observability unbatched state as readable text.
+    """Render one unbatched state as readable text from a seat's point of view.
 
-    ``viewer`` identifies the local player but never hides any cards.
+    ``viewer`` names the local player, whose hand is the only one printed;
+    the others show their card count. ``None`` reveals every hand.
     """
 
     if viewer is not None and not 0 <= viewer < NUM_PLAYERS:
@@ -70,7 +71,10 @@ def render_ansi(state: State, viewer: int | None = None) -> str:
     ]
     for player in range(NUM_PLAYERS):
         cards = np.flatnonzero(hands[player])
-        contents = _cards_text(cards)
+        if viewer is None or player == viewer:
+            contents = _cards_text(cards)
+        else:
+            contents = " ".join(["??"] * len(cards)) or "-"
         marker = (
             "→"
             if player == int(state.active_player) and not bool(state.terminated)

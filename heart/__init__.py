@@ -60,6 +60,14 @@ from heart.html_render import (
     save_html,
     save_replay_html,
 )
+from heart.play import (
+    HumanGame,
+    SeatPolicy,
+    load_seat_policy,
+    make_rule_seat_policy,
+    pass_action_for,
+    serve,
+)
 from heart.render import render_ansi
 from heart.single_agent import (
     HAND_SIZE,
@@ -103,21 +111,26 @@ __all__ = [
     "ClassicSingleAgentState",
     "ClassicState",
     "HeartEnv",
+    "HumanGame",
     "Info",
     "Observation",
     "RulePassPolicy",
     "RulePolicy",
+    "SeatPolicy",
     "SingleAgentEnv",
     "SingleAgentObservation",
     "SingleAgentState",
     "State",
     "card_id",
     "card_name",
+    "load_seat_policy",
     "make",
     "make_classic_single_agent",
     "make_rule_pass_policy",
     "make_rule_policy",
+    "make_rule_seat_policy",
     "make_single_agent",
+    "pass_action_for",
     "render_ansi",
     "render_classic_ansi",
     "render_classic_gif_frame",
@@ -132,6 +145,7 @@ __all__ = [
     "save_gif",
     "save_html",
     "save_replay_html",
+    "serve",
 ]
 
 __version__ = "0.1.0"

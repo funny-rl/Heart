@@ -7,7 +7,7 @@ import pytest
 import heart
 
 
-def test_html_player_view_reveals_every_hand_and_identifies_viewer():
+def test_html_player_view_hides_other_hands_and_identifies_viewer():
     env = heart.make()
     state, _ = env.reset(jax.random.key(201))
     viewer = (int(state.active_player) + 1) % heart.NUM_PLAYERS
@@ -18,11 +18,17 @@ def test_html_player_view_reveals_every_hand_and_identifies_viewer():
     assert f"P{viewer} · 나" in rendered
     assert "legal" in rendered
 
+    own_cards = np.flatnonzero(np.asarray(state.hands)[viewer])
+    for card in own_cards:
+        assert f'aria-label="{heart.card_name(int(card))}"' in rendered
+
+    # Only the viewer's hand is face up; the other three are backs.
+    assert rendered.count('aria-label="뒷면"') == 52 - len(own_cards)
     opponent_cards = np.flatnonzero(
         np.asarray(state.hands)[(viewer + 1) % heart.NUM_PLAYERS]
     )
     for card in opponent_cards:
-        assert f'aria-label="{heart.card_name(int(card))}"' in rendered
+        assert f'aria-label="{heart.card_name(int(card))}"' not in rendered
 
 
 def test_html_spectator_view_reveals_all_hands_without_viewer_marker():
@@ -31,6 +37,7 @@ def test_html_spectator_view_reveals_all_hands_without_viewer_marker():
     rendered = heart.render_html(state, viewer=None)
     assert rendered.count('aria-label="P') >= 4
     assert rendered.count('class="card ') == 52
+    assert 'aria-label="뒷면"' not in rendered
     assert "· 나" not in rendered
 
 

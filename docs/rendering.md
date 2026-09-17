@@ -3,17 +3,26 @@
 Rendering is a host-side inspection surface. It must not enter the compiled
 training transition or enlarge the recurrent JAX state.
 
-## Full observability
+## What `viewer` reveals
 
-All renderers consume omniscient `State` or `ClassicState` values and reveal
-every player's current hand. The `viewer` argument does not hide information:
+All renderers consume omniscient `State` or `ClassicState` values, and the
+`viewer` argument decides how much of that is drawn:
 
-- an integer `0`–`3` marks that player as local and places that seat at the
-  bottom of the HTML table;
-- `None` uses a neutral spectator view with player 0 at the bottom.
+- an integer `0`–`3` renders that seat's point of view: its hand is the only one
+  shown face up, the other three appear face down at their true card counts, and
+  in `classic-v0` the other seats' pass selections read as chosen rather than
+  naming cards. The seat is marked local and placed at the bottom of the HTML
+  table.
+- `None` keeps the omniscient spectator view, revealing every hand and every
+  pass selection, with player 0 at the bottom.
 
-This contract is intended for debugging, evaluation, teaching, and replay.
-Policies receive private observations rather than renderer input.
+Public information is never hidden: the current and just-completed trick,
+captured point cards, penalties, scores, rewards, winners, and moon state are
+drawn in both modes.
+
+Use an integer viewer for anything a player sees, including `heart.play`, and
+`None` for debugging, evaluation, teaching, and omniscient replay. Policies
+receive private observations rather than renderer input.
 
 ## `simplest-v0` snapshots
 
@@ -23,7 +32,8 @@ page = heart.render_html(state, viewer=0)
 path = heart.save_html(state, "heart-game.html", viewer=0)
 ```
 
-The dependency-free HTML shows all hands, trick placement, active player, legal
+The dependency-free HTML shows the viewer's hand, face-down opponents, trick
+placement, active player, legal
 cards, captured point cards, live penalties, final effective scores, rewards,
 winners, and moon state. Immediately after a trick completes, it reconstructs
 the completed four-card trick with original player seats; a newly started trick
@@ -38,8 +48,8 @@ path = heart.save_classic_html(state, "classic-game.html", viewer=0)
 ```
 
 Classic renderers add the cumulative 100-point scoreboard, current pass
-direction, omniscient pass-flow information, deal rewards, moon status, and
-match winners.
+direction, pass-flow progress (card names only for the viewer, or for every seat
+when `viewer` is `None`), deal rewards, moon status, and match winners.
 
 On a non-terminal `deal_boundary`, `state.game` is already the newly dealt next
 hand. The renderer combines that hand with a completed-deal overlay sourced

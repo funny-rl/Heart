@@ -83,14 +83,17 @@ def _deal_summary_html(state: ClassicState) -> str:
     )
 
 
-def _pass_flow_html(state: ClassicState) -> str:
+def _pass_flow_html(state: ClassicState, viewer: int | None = None) -> str:
     if int(state.phase) != PASS or bool(state.terminated) or bool(state.deal_boundary):
         return ""
     selected = np.asarray(state.pass_cards)
     seats = []
     for player in range(NUM_PLAYERS):
         cards = [CARD_NAMES[int(card)] for card in selected[player] if int(card) >= 0]
-        value = " · ".join(cards) if cards else "선택 대기"
+        if cards and viewer is not None and player != viewer:
+            value = "선택 완료"
+        else:
+            value = " · ".join(cards) if cards else "선택 대기"
         state_class = " done" if cards else ""
         seats.append(
             f'<span class="pass-seat{state_class}"><b>P{player}</b>{value}</span>'
@@ -144,7 +147,7 @@ def render_classic_html(state: ClassicState, viewer: int | None = 0) -> str:
         match_hud + '<main class="table"',
         1,
     )
-    overlay = _deal_summary_html(state) + _pass_flow_html(state)
+    overlay = _deal_summary_html(state) + _pass_flow_html(state, viewer)
     rendered = rendered.replace(
         "</main></div></body>", overlay + "</main></div></body>"
     )
@@ -193,7 +196,10 @@ def save_classic_replay_html(
 
 
 def render_classic_ansi(state: ClassicState, viewer: int | None = None) -> str:
-    """Render a classic match snapshot as readable text."""
+    """Render a classic match snapshot as readable text from a seat's view.
+
+    ``viewer`` sees only its own hand and pass selection; ``None`` reveals all.
+    """
 
     state = device_get(state)
     if viewer is not None and not 0 <= viewer < NUM_PLAYERS:
@@ -218,21 +224,25 @@ def render_classic_ansi(state: ClassicState, viewer: int | None = None) -> str:
             )
         )
     if int(state.phase) == PASS and not bool(state.deal_boundary):
-        choices = "  ".join(
-            f"P{player}="
-            + " ".join(
+        choices = []
+        for player in range(NUM_PLAYERS):
+            chosen = [
                 CARD_NAMES[int(card)]
                 for card in state.pass_cards[player]
                 if int(card) >= 0
-            )
-            for player in range(NUM_PLAYERS)
-        )
-        lines.append(f"Pass choices: {choices}")
+            ]
+            if chosen and viewer is not None and player != viewer:
+                chosen = ["??"] * len(chosen)
+            choices.append(f"P{player}=" + " ".join(chosen))
+        lines.append("Pass choices: " + "  ".join(choices))
     hands = np.asarray(state.game.hands)
     for player in range(NUM_PLAYERS):
-        cards = " ".join(
-            CARD_NAMES[int(card)] for card in np.flatnonzero(hands[player])
-        )
+        if viewer is None or player == viewer:
+            cards = " ".join(
+                CARD_NAMES[int(card)] for card in np.flatnonzero(hands[player])
+            )
+        else:
+            cards = " ".join(["??"] * int(hands[player].sum())) or "-"
         marker = (
             "→"
             if not bool(state.terminated) and player == int(state.active_player)

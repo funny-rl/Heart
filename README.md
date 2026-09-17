@@ -10,13 +10,13 @@
 
 [Why HEART](#why-heart) · [Modes](#environment-modes) · [Install](#installation) · [Quickstart](#quickstart) · [Batching](#batched-rollouts) · [Rendering](#rendering-and-replays) · [Contracts](#core-contracts) · [Documentation](#documentation)
 
-<img src="docs/assets/rendering/simplest-v0-preview.gif" alt="Five-second full-observability HEART simplest-v0 match preview" width="760">
+<img src="docs/assets/rendering/simplest-v0-preview.gif" alt="Five-second HEART simplest-v0 match preview from player 0's seat" width="760">
 
-<sub>HEART 0.1.0 · `simplest-v0` · seed 42 · four `medium` reference policies · 53 full-observability states rendered in approximately five seconds.</sub>
+<sub>HEART 0.1.0 · `simplest-v0` · seed 42 · four `medium` reference policies · 53 seat-view states rendered in approximately five seconds.</sub>
 
-<a href="docs/assets/rendering/classic-v0-deal-transition.html"><img src="docs/assets/rendering/classic-v0-deal-transition.gif" alt="Full-observability HEART classic-v0 left-pass deal transition" width="760"></a>
+<a href="docs/assets/rendering/classic-v0-deal-transition.html"><img src="docs/assets/rendering/classic-v0-deal-transition.gif" alt="HEART classic-v0 left-pass deal transition from player 0's seat" width="760"></a>
 
-<sub>`classic-v0` · left passing through the next-deal boundary · 57 full-observability frames in 7.92 seconds · <a href="docs/assets/rendering/classic-v0-deal-transition.html">open the interactive HTML replay</a>.</sub>
+<sub>`classic-v0` · left passing through the next-deal boundary · 57 seat-view frames in 7.92 seconds · the interactive HTML replay is <a href="docs/assets/rendering/classic-v0-deal-transition.html">in the repository</a> — GitHub shows it as source, so download the raw file and open it locally.</sub>
 
 </div>
 
@@ -45,7 +45,8 @@ host-side.
 | **Competitive rewards** | Zero-sum deal outcomes: terminal in `simplest-v0`, at every deal boundary in `classic-v0`. |
 | **Legal-action masks**  | A 52-way play mask enforces card rules; classic passing adds a 286-way combination mask.   |
 | **Reference opponents** | Seeded `easy`, `medium`, and `hard` rule policies share the learning-policy interface.     |
-| **Inspectable replays** | Full-observability terminal, HTML snapshot, and portable interactive replay outputs.       |
+| **Inspectable replays** | Seat-view or omniscient terminal, HTML snapshot, and portable interactive replay outputs.  |
+| **Human play**          | One seat played by a person against rule tiers or plugged-in learned policies.            |
 
 Training algorithms are intentionally not bundled. HEART supplies the game
 contract and reference policies; callers retain ownership of batching,
@@ -97,6 +98,18 @@ opponent receives `-1` (rotated to the shooter).
 | Deal events   | 56 on passing deals; 52 on hold deals                                |
 | Moon shot     | Shooter scores 0 for the deal; every opponent scores 26              |
 | Reward timing | Zero within a deal; normalized zero-sum vector at each deal boundary |
+
+## Playing against the policies
+
+```bash
+python -m heart --seat easy --seat medium --seat hard
+```
+
+This serves a local page where you hold one seat of a `classic-v0` match.
+Opponents are the packaged rule tiers, or any `package.module:factory(argument)`
+returning a `SeatPolicy`, which is how a trained checkpoint joins the table
+without becoming a dependency of this package. See the
+[human play contract](docs/play.md).
 
 See the normative [`classic-v0` contract](docs/classic.md) for phase masks,
 reward semantics, the single-learner adapter, and deal-boundary state.
@@ -278,7 +291,7 @@ backend, hardware, batch size, warm-up, and measured run count.
 | State and observation | [`docs/environment.md`](docs/environment.md)                           | Omniscient environment state versus player-private policy input         |
 | Rules and reward      | [`docs/rules.md`](docs/rules.md), [`docs/classic.md`](docs/classic.md) | Versioned legality, scoring, termination, passing, and reward semantics |
 | Reference policies    | `heart.make_rule_policy`                                               | Mask-respecting, seeded baselines; not claims of optimal play           |
-| Rendering and replay  | [`docs/rendering.md`](docs/rendering.md)                               | Full-observability host output, excluded from the compiled transition   |
+| Rendering and replay  | [`docs/rendering.md`](docs/rendering.md)                               | Seat-view and omniscient host output, excluded from the compiled path   |
 | Reproducibility       | [`docs/reproducibility.md`](docs/reproducibility.md)                   | Explicit seeds, revision reporting, and benchmark receipts              |
 
 The learning observation is intentionally player-private. Full observability is
@@ -322,7 +335,9 @@ The checked-in preview follows one complete left-pass deal across its boundary:
 
 ![HEART classic-v0 deal transition](docs/assets/rendering/classic-v0-deal-transition.gif)
 
-[Open the 57-frame interactive HTML replay](docs/assets/rendering/classic-v0-deal-transition.html).
+The 57-frame interactive HTML replay is
+[checked in](docs/assets/rendering/classic-v0-deal-transition.html). GitHub renders
+repository HTML as source, so download the raw file to open the player in a browser.
 
 Create compact animated previews with the optional rendering dependency:
 
@@ -383,7 +398,7 @@ tag, a GitHub Release, and built distributions identify the same code. See
 | State, observations, actions, and transitions      | [`docs/environment.md`](docs/environment.md)         |
 | `simplest-v0` rules and rewards                    | [`docs/rules.md`](docs/rules.md)                     |
 | `classic-v0` match, passing, rewards, and learning | [`docs/classic.md`](docs/classic.md)                 |
-| Full-observability rendering and replay            | [`docs/rendering.md`](docs/rendering.md)             |
+| Seat-view and omniscient rendering and replay      | [`docs/rendering.md`](docs/rendering.md)             |
 | Seeds, batching, and performance evidence          | [`docs/reproducibility.md`](docs/reproducibility.md) |
 | Release and compatibility policy                   | [`docs/release.md`](docs/release.md)                 |
 

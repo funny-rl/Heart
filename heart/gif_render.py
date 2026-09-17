@@ -11,6 +11,7 @@ from jax import device_get
 
 from heart.cards import (
     HEARTS,
+    NUM_CARDS,
     NUM_PLAYERS,
     RANK_NAMES,
     SUIT_SYMBOLS,
@@ -78,6 +79,27 @@ def _card(
     _center(draw, (x + width // 2, y + height // 2 + 3), symbol, fonts[1], color)
 
 
+def _card_back(draw: Any, xy: tuple[int, int], size: tuple[int, int]) -> None:
+    """Draw a face-down card, used for every hand that is not the viewer's."""
+
+    x, y = xy
+    width, height = size
+    draw.rounded_rectangle(
+        (x, y, x + width, y + height),
+        radius=max(4, width // 8),
+        fill="#1b3a5c",
+        outline="#7f93ad",
+        width=1,
+    )
+    inset = max(3, width // 9)
+    draw.rounded_rectangle(
+        (x + inset, y + inset, x + width - inset, y + height - inset),
+        radius=max(2, width // 12),
+        outline="#4d7bb0",
+        width=max(1, width // 20),
+    )
+
+
 def _seat(player: int, viewer: int | None) -> str:
     anchor = 0 if viewer is None else viewer
     return _SEATS[(player - anchor) % NUM_PLAYERS]
@@ -92,7 +114,11 @@ def render_gif_frame(
     reward_override: np.ndarray | None = None,
     winner_override: np.ndarray | None = None,
 ) -> Any:
-    """Render one full-observability state as a Pillow RGB image."""
+    """Render one state as a Pillow RGB image from a seat's point of view.
+
+    ``viewer`` is the only hand drawn face up; the others show face-down cards
+    in their true counts. ``None`` reveals every hand.
+    """
 
     if viewer is not None and not 0 <= viewer < NUM_PLAYERS:
         raise ValueError("viewer must be in [0, 4) or None")
@@ -162,22 +188,25 @@ def render_gif_frame(
         else np.asarray(state.winner_mask)
     )
     legal = None if ended or not show_legal else np.asarray(host_legal)
-    panel_centers = {
-        "bottom": (480, 430),
-        "top": (480, 72),
-        "left": (92, 176),
-        "right": (868, 176),
-    }
+    panel_columns = {"bottom": 480, "top": 480, "left": 92, "right": 868}
     hand_origins = {
         "bottom": (290, 455),
         "top": (328, 91),
         "left": (57, 202),
         "right": (869, 202),
     }
+    # A seat badge is placed from the cards it labels rather than at a fixed
+    # point, so a full 13-card hand cannot end up underneath it.  Side columns
+    # use their widest extent, which keeps the badge still while cards are
+    # played out.
+    badge_gap = round(7 * scale)
+    wide_card_height = round(59 * scale)
+    side_span = round(48 * scale) + round(17 * scale) * (NUM_CARDS // NUM_PLAYERS - 1)
+    side_top = round(sy(270) - side_span / 2 + 20 * scale)
 
     for player in range(NUM_PLAYERS):
         seat = _seat(player, viewer)
-        px, py = panel_centers[seat]
+        px = panel_columns[seat]
         identity = " · YOU" if player == viewer else ""
         turn = " · TURN" if player == active and not ended else ""
         name = f"P{player}{identity}{turn}"
@@ -195,12 +224,19 @@ def render_gif_frame(
         fill = "#594915" if turn else "#09231bdc"
         winner = ended and bool(winners[player])
         outline = "#86efac" if winner else "#fbbf24" if turn else "#ffffff35"
+        if seat == "top":
+            # The top hand sits against the rim, so its badge hangs below it.
+            centre_y = sy(91) + wide_card_height + badge_gap + lh / 2
+        elif seat == "bottom":
+            centre_y = sy(455) - badge_gap - lh / 2
+        else:
+            centre_y = side_top - badge_gap - lh / 2
         draw.rounded_rectangle(
             (
                 round(sx(px) - lw / 2),
-                round(sy(py) - lh / 2),
+                round(centre_y - lh / 2),
                 round(sx(px) + lw / 2),
-                round(sy(py) + lh / 2),
+                round(centre_y + lh / 2),
             ),
             radius=round(8 * scale),
             fill=fill,
@@ -210,20 +246,21 @@ def render_gif_frame(
         line_offset = (line_height + round(3 * scale)) / 2
         _center(
             draw,
-            (sx(px), round(sy(py) - line_offset)),
+            (sx(px), round(centre_y - line_offset)),
             name,
             small_font,
             "#f8fafc",
         )
         _center(
             draw,
-            (sx(px), round(sy(py) + line_offset)),
+            (sx(px), round(centre_y + line_offset)),
             metric,
             small_font,
             "#93c5fd" if ended else "#d1fae5",
         )
 
         cards = [int(card) for card in np.flatnonzero(hands[player])]
+        hidden = viewer is not None and player != viewer
         ox, oy = hand_origins[seat]
         if seat in ("bottom", "top"):
             card_size = (round(42 * scale), round(59 * scale))
@@ -231,10 +268,14 @@ def render_gif_frame(
             total = card_size[0] + gap * max(len(cards) - 1, 0)
             start_x = round(sx(480) - total / 2)
             for index, card in enumerate(cards):
+                origin = (start_x + index * gap, sy(oy))
+                if hidden:
+                    _card_back(draw, origin, card_size)
+                    continue
                 _card(
                     draw,
                     card,
-                    (start_x + index * gap, sy(oy)),
+                    origin,
                     card_size,
                     (card_font, suit_font),
                     legal=player == active and legal is not None and bool(legal[card]),
@@ -245,10 +286,14 @@ def render_gif_frame(
             total = card_size[1] + gap * max(len(cards) - 1, 0)
             start_y = round(sy(270) - total / 2 + 20 * scale)
             for index, card in enumerate(cards):
+                origin = (sx(ox), start_y + index * gap)
+                if hidden:
+                    _card_back(draw, origin, card_size)
+                    continue
                 _card(
                     draw,
                     card,
-                    (sx(ox), start_y + index * gap),
+                    origin,
                     card_size,
                     (tiny_card_font, tiny_suit_font),
                     legal=player == active and legal is not None and bool(legal[card]),

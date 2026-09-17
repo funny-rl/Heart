@@ -9,3 +9,4 @@ venv/
 .jax_cache/
 heart-game*.html
 heart-replay*.html
+wandb/
