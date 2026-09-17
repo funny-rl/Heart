@@ -12,30 +12,43 @@
 
 ## Standings
 
+<!-- standings:start -->
 <div align="center">
 
-### 🥇 &nbsp; PSRO &nbsp; · &nbsp; **6.20** penalty points per deal
+### 🥇 &nbsp; RL (TA) &nbsp; · &nbsp; **5.21** penalty points per deal
 
-<sub>8,192 complete matches to 100 points · 363,900 deals · rotating seats · shared deals</sub>
+<sub>8,192 complete matches to 100 points · 83,942 deals · rotating seats · shared deals</sub>
 
 </div>
 
-| | Entry | Penalty / deal | vs field | Won | Last | Elo | Matches | Deals |
-|:--:|---|--:|--:|--:|--:|--:|--:|--:|
-| 🥇 | **PSRO** | **6.197** <sub>± 0.029</sub> | **−0.61** | **33.2 %** | **16.6 %** | **1548** <sub>± 2</sub> | 6,532 | 72,377 |
-| 🥈 | **RL** | **6.442** <sub>± 0.029</sub> | −0.36 | 29.0 % | 18.2 % | **1532** <sub>± 2</sub> | 6,564 | 72,901 |
-| 🥉 | rule-hard | 6.806 <sub>± 0.031</sub> | +0.00 | 25.2 % | 26.1 % | 1496 <sub>± 2</sub> | 6,618 | 73,687 |
-| 4 | rule-medium | 7.210 <sub>± 0.032</sub> | +0.41 | 21.4 % | 31.8 % | 1469 <sub>± 2</sub> | 6,520 | 72,429 |
-| 5 | rule-easy | 7.358 <sub>± 0.032</sub> | +0.55 | 18.5 % | 33.1 % | 1456 <sub>± 1</sub> | 6,534 | 72,506 |
+| | Entry | Penalty / deal | vs field | Won | Last | Elo | Matches |
+| :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 🥇 | **RL (TA)** | **5.205** &nbsp;<sub>± 0.031</sub> | −1.54 | 40.6 % | 7.1 % | **1618** &nbsp;<sub>± 2</sub> | 5,460 |
+| 🥈 | **PSRO (TA)** | **5.308** &nbsp;<sub>± 0.030</sub> | −1.44 | 38.4 % | 7.6 % | **1609** &nbsp;<sub>± 1</sub> | 5,440 |
+| 🥉 | rule-hard | 6.083 &nbsp;<sub>± 0.034</sub> | −0.66 | 27.5 % | 15.1 % | 1541 &nbsp;<sub>± 2</sub> | 5,495 |
+| 4 | rule-medium | 6.495 &nbsp;<sub>± 0.036</sub> | −0.25 | 23.0 % | 20.0 % | 1510 &nbsp;<sub>± 2</sub> | 5,421 |
+| 5 | rule-easy | 6.604 &nbsp;<sub>± 0.035</sub> | −0.14 | 21.8 % | 21.1 % | 1500 &nbsp;<sub>± 2</sub> | 5,509 |
+| 6 | baseline | 10.774 &nbsp;<sub>± 0.039</sub> | +4.03 | 1.5 % | 80.0 % | 1222 &nbsp;<sub>± 1</sub> | 5,443 |
 
 <div align="center">
 <sub>
 
-`RL` is recurrent PPO trained alone; `PSRO` is the best response a population
-method produced against a field containing `RL` and the rule tiers.
+Updated 2026-09-18 · field average **6.74** points per deal
 
 </sub>
 </div>
+<!-- standings:end -->
+
+> **Read it honestly.** `(TA)` marks the two policies this project trained; they
+> are here as a yardstick, not as contenders. `baseline` is the packaged floor —
+> it plays the cheapest legal card and nothing else — and a weak seat absorbs
+> points, which lifts everyone else at the table. The figures move when the field
+> moves, so compare entries within one run rather than across runs.
+
+<sub>Every entry above, the packaged policies included, went through this same
+contract: the same observation, the same action space, the same checks. A
+reference policy that could not itself be submitted would not be a fair
+yardstick.</sub>
 
 ### What the numbers mean
 
@@ -44,33 +57,13 @@ method produced against a field containing `RL` and the rule tiers.
 | **Deal** | one hand: thirteen tricks, dealt and played out. A deal hands out **26 penalty points** — one per heart, thirteen for the queen of spades — so four seats average **6.5** each. |
 | **Match** | a `classic-v0` game, played until someone reaches **100 points**. That takes about eleven deals, and the lowest cumulative score wins. Matches here are played to the end, so the endgame near 100 counts. |
 | **Penalty / deal** | average points this entry took per deal. **Lower is better** — this is what Hearts itself counts, not a reward this environment invented. |
-| **vs field** | the same figure minus the field's average of **6.80**. Negative means the entry takes fewer points than the table around it. |
+| **vs field** | the same figure minus the field's average. Negative means the entry takes fewer points than the table around it. |
 | **Won** | share of **complete matches** whose final cumulative score was the lowest at the table — the game's own definition of winning, not a per-deal count. Ties count for everyone tied, so the column sums above 100 %. |
 | **Last** | share of **complete matches** whose final cumulative score was the **highest** — again per match to 100 points, not per deal. A policy can win often and still collapse often; these two columns separate steady play from streaky play. |
 | **Elo** | fitted from every match's six seat-versus-seat pairings, won by the lower final score. It says who beats whom; the points column says by how much. |
-| **Matches / Deals** | the sample each figure is computed over. |
+| **Matches** | complete matches this entry sat in — the sample each figure is computed over. Each runs about eleven deals. |
 
-The field averages 6.80 rather than 6.5 because a shot moon pays 78 points
-instead of 26. Every rank is separated — the closest pair, `rule-medium` to
-`rule-easy`, differs by 0.15 against a combined error of 0.045 — and the rule
-tiers land in their designed order, which is a check on the measurement as much
-as on them.
-
-`PSRO` and `RL` are close on points but further apart on **Last**: 16.6 % versus
-18.2 %. The population method's edge is as much in avoiding disasters as in
-winning outright.
-
-> **Read it honestly.** This field is close to what `PSRO` trained against, so
-> the league flatters it. On a different measurement — each policy seated
-> against three copies of one rule tier — `RL` finishes ahead. Both numbers are
-> real and they answer different questions: how a policy fares *in this field*,
-> and how it generalises to opponents it never met. A leaderboard answers only
-> the first.
-
-<sub>The five entries above are this project's own policies. They read richer
-observations than this contract offers and so cannot be submitted through it;
-they are ranked by the same statistics and are here to show a populated table.
-Submitted entries will appear alongside them.</sub>
+A field averages more than 6.5 because a shot moon pays 78 points instead of 26.
 
 ---
 
@@ -92,14 +85,21 @@ system, the network, or the host process.
 ## The contract
 
 ```text
-(observations: float32[b, 228])
-    -> (pass_logits: float32[b, 286], play_logits: float32[b, 52])
+(observation: ClassicSingleAgentObservation)
+    -> (pass_logits: float32[b, 286], play_logits: float32[b, 13])
 ```
 
-`b` must be exported as a **symbolic** dimension so the host picks the batch.
-Everything inside the graph is yours.
+**This is the environment's own interface, not a second one.** An entry receives
+exactly the observation `heart.make_classic_single_agent` gives a learner, and
+chooses from exactly the actions that learner may take. Nothing is re-encoded on
+the way in, so an entry sees what the packaged policies see — and a packaged
+policy is itself a valid entry.
 
-Three things follow from the signature, and they are easy to miss:
+Every leaf of the observation carries a leading **symbolic** batch dimension, so
+the host picks the batch. `heart.contest.observation_signature()` is that
+signature and `heart.contest.sample_observation()` is one unbatched example.
+
+Three things follow from the interface, and they are easy to miss:
 
 - **The host masks and then takes the argmax.** Illegal actions are set to
   negative infinity before the choice, so an entry may leave them unscored. Only
@@ -113,26 +113,26 @@ Three things follow from the signature, and they are easy to miss:
 
 ## What a policy sees
 
-Every segment is `float32` and **seat-relative**: index 0 is the seat to act, 1
-the seat to its left, and so on, so a policy never learns absolute seats.
+The observation is `ClassicSingleAgentObservation`: the match view plus the
+seat's own hand, laid out as thirteen slots.
 
-| Segment | Width | Meaning |
-| --- | ---: | --- |
-| `hand` | 52 | cards the seat holds |
-| `played` | 52 | cards already gone this deal |
-| `table` | 52 | cards lying in the current trick |
-| `legal` | 52 | cards the rules allow right now |
-| `position` | 4 | how many seats played before this one |
-| `taken_points` | 4 | deal penalties so far, ÷ 26 |
-| `match_scores` | 4 | cumulative match scores, ÷ 100 |
-| `pass_direction` | 4 | left, right, across, hold |
-| `phase` | 2 | passing, playing |
-| `flags` | 2 | hearts broken, queen of spades gone |
-| **total** | **228** | `heart.contest.OBSERVATION_DIM` |
+| Field | What it holds |
+| --- | --- |
+| `match.game` | the deal: hands as seen, the current trick, trick history and winners, penalties, who is to act, whether hearts are broken |
+| `match.match_scores` | cumulative scores, the figures the hundred-point rule reads |
+| `match.deal_index`, `match.phase`, `match.pass_direction` | where the match is |
+| `match.cards_passed`, `match.cards_received` | what this seat gave and got |
+| `pass_hand_cards`, `play_hand_cards` | the seat's thirteen slots, ascending, `-1` for a hole |
+| `pass_action_mask`, `play_action_mask` | which of the 286 triples and thirteen slots the rules allow |
 
-`heart.contest.OFFSETS` gives each segment's exact slice, and
-`heart.contest.encode_observation(state, player)` is the encoder the league
-itself runs — there is no second implementation to drift from.
+**Hand slots hold still for a deal.** A card that is played leaves its slot
+behind and the mask hides it, so slot 4 means the same card on every turn of a
+deal. The layout is refreshed when a deal opens and again once passing has
+handed the cards over.
+
+The play head chooses a **slot**, not a card, which is the environment's own
+action space — and it lets a set-equivariant policy answer per card without
+learning anything about position.
 
 ## Budgets
 
@@ -140,37 +140,30 @@ itself runs — there is no second implementation to drift from.
 | --- | ---: | --- |
 | Serialised size | 8 MiB | a graph this large is not a policy |
 | Compute | 5,000,000 flops per decision | one seat must not starve the league |
+| Platforms | must cover the host's | an entry that cannot run cannot be ranked |
 | Outputs | finite | a non-finite logit decides nothing |
 
 Compute is read from the **compiled graph's cost analysis** and divided by the
-batch, so it does not depend on the machine that measures it. For scale:
-
-| Entry | Flops per decision | Verdict |
-| --- | ---: | :---: |
-| the packaged baseline | 1,599 | accepted |
-| one 32-unit hidden layer | 54,336 | accepted |
-| twenty 228-wide layers | 2,337,456 | accepted |
-| forty 512-wide layers | 21,551,104 | **refused** |
-| sixty 1024-wide layers | 126,988,288 | **refused** |
+batch, so it does not depend on the machine that measures it.
 
 ## Build an entry
 
 ```python
-import jax, jax.numpy as jnp
+import jax.numpy as jnp
 from pathlib import Path
-from jax import export
-from heart.contest import OBSERVATION_DIM
+from heart.contest import export_policy
 
-def policy(observations):                 # any architecture you like
-    hidden = jnp.tanh(observations @ first_weights)
+def policy(observation):                  # any architecture you like
+    hand = observation.play_hand_cards.astype(jnp.float32)
+    hidden = jnp.tanh(hand @ first_weights)
     return hidden @ pass_weights, hidden @ play_weights
 
-batch = export.symbolic_shape("b")[0]
-signature = jax.ShapeDtypeStruct((batch, OBSERVATION_DIM), jnp.float32)
-Path("entry.bin").write_bytes(export.export(jax.jit(policy))(signature).serialize())
+Path("entry.bin").write_bytes(export_policy(policy))
 ```
 
-Serialising needs `flatbuffers`: `pip install 'heart-marl[contest]'`.
+`export_policy` exports for the platforms this machine can run, which is what
+the host checks against. Serialising needs `flatbuffers`:
+`pip install 'heart-marl[contest]'`.
 
 ### Check it before you send it
 
@@ -190,8 +183,7 @@ reason listed above.
 `heart.contest.baseline_blob()` returns a complete, valid entry — play the
 cheapest legal card, pass the three highest. It is the floor the standings are
 measured against and the shortest example of the contract in use.
-`submissions/baseline-example/` is that entry, laid out the way a submission
-looks.
+`submissions/heart-marl/` is that entry, laid out the way a submission looks.
 
 ## Sending it in
 

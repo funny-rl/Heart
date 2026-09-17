@@ -53,14 +53,16 @@ from heart.classic_single_agent import (
     make_classic_single_agent,
 )
 from heart.contest import (
-    OBSERVATION_DIM,
     Standing,
     Submission,
     SubmissionError,
     baseline_blob,
-    encode_observation,
+    export_policy,
+    host_platforms,
     load_submission,
+    observation_signature,
     run_league,
+    sample_observation,
 )
 from heart.env import AVAILABLE_MODES, SIMPLEST_V0, HeartEnv, make
 from heart.gif_render import render_gif_frame, save_gif
@@ -99,7 +101,6 @@ __all__ = [
     "NUM_CARDS",
     "NUM_PASS_ACTIONS",
     "NUM_PLAYERS",
-    "OBSERVATION_DIM",
     "PASS",
     "PASS_ACROSS",
     "PASS_COMBINATIONS",
@@ -138,7 +139,8 @@ __all__ = [
     "baseline_blob",
     "card_id",
     "card_name",
-    "encode_observation",
+    "export_policy",
+    "host_platforms",
     "load_seat_policy",
     "load_submission",
     "make",
@@ -147,6 +149,7 @@ __all__ = [
     "make_rule_policy",
     "make_rule_seat_policy",
     "make_single_agent",
+    "observation_signature",
     "pass_action_for",
     "render_ansi",
     "render_classic_ansi",
@@ -157,6 +160,7 @@ __all__ = [
     "render_html",
     "render_replay_html",
     "run_league",
+    "sample_observation",
     "save_classic_gif",
     "save_classic_html",
     "save_classic_replay_html",

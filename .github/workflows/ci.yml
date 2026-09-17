@@ -43,9 +43,11 @@ jobs:
           python -m pytest tests/test_classic.py
           python -m pytest tests/test_classic_render.py
           python -m pytest tests/test_classic_single_agent.py
+          python -m pytest tests/test_contest.py
           python -m pytest tests/test_env.py
           python -m pytest tests/test_gif_render.py
           python -m pytest tests/test_html_render.py
+          python -m pytest tests/test_play.py
           python -m pytest tests/test_render.py
           python -m pytest tests/test_single_agent.py
 

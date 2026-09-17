@@ -11,9 +11,12 @@ separately version game semantics.
 - `heart.contest`: a leaderboard submission contract. An entry is a policy
   exported to a portable computation graph, so the host runs it inside XLA
   without importing submitter code and a host callback cannot be exported at
-  all. Entries are checked against a fixed observation and logit signature, a
-  size limit, and a per-decision flop budget measured from the compiled graph.
-  See [the submission rules](docs/leaderboard.md).
+  all. The contract is the environment's own single-agent interface — an entry
+  takes a `ClassicSingleAgentObservation` and returns pass and play logits — so
+  there is one convention rather than a second one invented for the leaderboard,
+  and a packaged policy is itself a valid entry. Entries are checked against
+  that signature, a size limit, and a per-decision flop budget measured from the
+  compiled graph. See [the submission rules](docs/leaderboard.md).
 - `heart.contest.run_league`: entries meet in sampled four-seat line-ups with
   rotating seats over shared deals, and are ranked on penalty points per deal —
   the game's own score rather than this environment's normalisation of it — with

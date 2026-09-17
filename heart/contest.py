@@ -6,13 +6,17 @@ checks it against the declared signature, and runs it inside XLA. Host
 callbacks cannot survive export, so a submission has no way out of the
 computation.
 
-The graph is free to be any architecture at all. Only the signature is fixed::
+The graph may be any architecture. What is fixed is the interface, and it is
+the environment's own — the observation a single learner receives and the
+actions it may take::
 
-    (observations: float32[b, OBSERVATION_DIM])
+    (observation: ClassicSingleAgentObservation)
         -> (pass_logits: float32[b, NUM_PASS_ACTIONS],
-            play_logits: float32[b, NUM_CARDS])
+            play_logits: float32[b, HAND_SIZE])
 
-with ``b`` exported as a symbolic dimension so the host chooses the batch.
+with every leaf carrying a leading symbolic batch dimension, so the host
+chooses the batch. Nothing here is a second encoding of the game: an entry sees
+exactly what the packaged policies see, and a packaged policy is a valid entry.
 """
 
 from __future__ import annotations
@@ -25,84 +29,92 @@ import jax.numpy as jnp
 import numpy as np
 
 import heart
-from heart.cards import NUM_CARDS, NUM_PLAYERS, QUEEN_OF_SPADES
+from heart.cards import NUM_CARDS, NUM_PLAYERS
 from heart.classic import (
     MAX_CLASSIC_CORE_STEPS,
     NUM_PASS_ACTIONS,
     PASS,
-    PASS_COMBINATIONS,
+    PLAY,
     TERMINAL,
+    ClassicObservation,
     ClassicState,
-    observe_classic,
 )
-
-# Observation layout, in order. Every segment is float32 and seat-relative:
-# index 0 is always the acting player, 1 the seat to their left, and so on, so
-# a policy never has to learn absolute seats.
-SEGMENTS: tuple[tuple[str, int], ...] = (
-    ("hand", NUM_CARDS),  # cards held
-    ("played", NUM_CARDS),  # cards gone this deal
-    ("table", NUM_CARDS),  # cards in the current trick
-    ("legal", NUM_CARDS),  # cards the rules allow right now
-    ("position", NUM_PLAYERS),  # how many have played before me
-    ("taken_points", NUM_PLAYERS),  # deal penalties so far, /26
-    ("match_scores", NUM_PLAYERS),  # cumulative scores, /100
-    ("pass_direction", 4),  # left, right, across, hold
-    ("phase", 2),  # passing, playing
-    ("flags", 2),  # hearts broken, queen already played
-)
-OBSERVATION_DIM = sum(size for _, size in SEGMENTS)
-OFFSETS = {}
-_at = 0
-for _name, _size in SEGMENTS:
-    OFFSETS[_name] = (_at, _at + _size)
-    _at += _size
+from heart.classic_single_agent import ClassicSingleAgentObservation
+from heart.single_agent import HAND_SIZE
+from heart.types import Observation
 
 MAX_SUBMISSION_BYTES = 8 * 1024 * 1024
 MAX_FLOPS_PER_DECISION = 5_000_000
+START_RATING = 1500.0
+RATING_SCALE = 400.0
 _CUSTOM_CALL = re.compile(r'call_target_name\s*=\s*"([^"]+)"')
-
-
-def _classic_env():
-    return heart.make("classic-v0")
+_REGISTERED = False
 
 
 class SubmissionError(ValueError):
     """A submission that the contract refuses to run."""
 
 
-def encode_observation(state: ClassicState, player: int) -> jnp.ndarray:
-    """Build the fixed-width view the contract promises a policy."""
+def _register() -> None:
+    """Teach the exporter the observation's named tuples, once."""
 
-    observation = observe_classic(state, player)
-    game = state.game
-    seats = (jnp.arange(NUM_PLAYERS) + player) % NUM_PLAYERS
+    global _REGISTERED
+    if _REGISTERED:
+        return
+    from jax import export
 
-    hand = game.hands[player].astype(jnp.float32)
-    played = jnp.zeros(NUM_CARDS, jnp.float32)
-    history = game.trick_history.reshape(-1)
-    played = played.at[jnp.clip(history, 0, NUM_CARDS - 1)].set(
-        jnp.where(history >= 0, 1.0, 0.0)
-    )
-    table = jnp.zeros(NUM_CARDS, jnp.float32)
-    current = game.current_trick
-    table = table.at[jnp.clip(current, 0, NUM_CARDS - 1)].set(
-        jnp.where(current >= 0, 1.0, 0.0)
-    )
-    legal = observation.play_action_mask.astype(jnp.float32)
+    for kind in (Observation, ClassicObservation, ClassicSingleAgentObservation):
+        export.register_namedtuple_serialization(
+            kind, serialized_name=f"heart.{kind.__name__}"
+        )
+    _REGISTERED = True
 
-    position = jax.nn.one_hot(game.trick_position, NUM_PLAYERS, dtype=jnp.float32)
-    taken = game.penalties[seats].astype(jnp.float32) / 26.0
-    scores = state.match_scores[seats].astype(jnp.float32) / 100.0
-    direction = jax.nn.one_hot(state.pass_direction, 4, dtype=jnp.float32)
-    phase = jax.nn.one_hot(
-        (state.phase != PASS).astype(jnp.int32), 2, dtype=jnp.float32
+
+def sample_observation() -> ClassicSingleAgentObservation:
+    """One unbatched observation, the shape every entry is exported against."""
+
+    env = heart.make_classic_single_agent(
+        controlled_player=0, pass_opponents="easy", play_opponents="easy"
     )
-    queen_gone = played[QUEEN_OF_SPADES]
-    flags = jnp.stack([game.hearts_broken.astype(jnp.float32), queen_gone])
-    return jnp.concatenate(
-        [hand, played, table, legal, position, taken, scores, direction, phase, flags]
+    return env.reset(jax.random.key(0))[1]
+
+
+def observation_signature():
+    """The batched input signature an entry is exported with."""
+
+    from jax import export
+
+    _register()
+    batch = export.symbolic_shape("b")[0]
+    return jax.tree.map(
+        lambda leaf: jax.ShapeDtypeStruct((batch, *leaf.shape), leaf.dtype),
+        sample_observation(),
     )
+
+
+def host_platforms() -> tuple[str, ...]:
+    """The platforms an entry should cover: always cpu, plus whatever is here.
+
+    A device calls itself ``gpu`` while an export names the vendor, so the two
+    have to be reconciled before they can be compared.
+    """
+
+    device = jax.devices()[0]
+    platform = device.platform
+    if platform == "gpu":
+        platform = "rocm" if "rocm" in device.device_kind.lower() else "cuda"
+    return tuple(dict.fromkeys(("cpu", platform)))
+
+
+def export_policy(policy, *, platforms: tuple[str, ...] | None = None) -> bytes:
+    """Export a policy written against the contract, ready to submit."""
+
+    from jax import export
+
+    _register()
+    return export.export(jax.jit(policy), platforms=platforms or host_platforms())(
+        observation_signature()
+    ).serialize()
 
 
 @dataclass(frozen=True)
@@ -115,8 +127,14 @@ class Submission:
     size_bytes: int
 
 
+def _batched(observation, batch: int):
+    return jax.tree.map(
+        lambda leaf: jnp.broadcast_to(leaf, (batch, *leaf.shape)), observation
+    )
+
+
 def _cost(call, batch: int) -> float:
-    sample = jnp.zeros((batch, OBSERVATION_DIM), jnp.float32)
+    sample = _batched(sample_observation(), batch)
     analysis = jax.jit(call).lower(sample).compile().cost_analysis()
     if isinstance(analysis, list):
         analysis = analysis[0] if analysis else {}
@@ -142,33 +160,45 @@ def load_submission(
         from jax import export
     except ImportError as error:  # pragma: no cover - depends on the install
         raise SubmissionError("jax.export is unavailable") from error
+    _register()
     try:
         exported = export.deserialize(bytearray(blob))
     except Exception as error:
         raise SubmissionError(f"not a readable exported graph: {error}") from error
 
-    if len(exported.in_avals) != 1:
+    wanted = jax.tree.leaves(observation_signature())
+    if len(exported.in_avals) != len(wanted):
         raise SubmissionError(
-            f"expected one input, the observation batch; got {len(exported.in_avals)}"
+            f"expected the single-learner observation, {len(wanted)} arrays;"
+            f" got {len(exported.in_avals)}"
         )
-    shape = exported.in_avals[0].shape
-    if len(shape) != 2 or str(shape[1]) != str(OBSERVATION_DIM):
+    for index, (given, expected) in enumerate(zip(exported.in_avals, wanted)):
+        if given.dtype != expected.dtype or [str(d) for d in given.shape] != [
+            str(d) for d in expected.shape
+        ]:
+            raise SubmissionError(
+                f"observation array {index} must be {expected.dtype}{list(expected.shape)};"
+                f" got {given.dtype}{list(given.shape)}"
+            )
+
+    outputs = ((NUM_PASS_ACTIONS,), (HAND_SIZE,))
+    given = tuple(tuple(str(d) for d in aval.shape[1:]) for aval in exported.out_avals)
+    if given != tuple(tuple(str(d) for d in shape) for shape in outputs):
         raise SubmissionError(
-            f"input must be float32[b, {OBSERVATION_DIM}]; got {shape}"
-        )
-    if exported.in_avals[0].dtype != jnp.float32:
-        raise SubmissionError(
-            f"input must be float32; got {exported.in_avals[0].dtype}"
-        )
-    wanted = ((NUM_PASS_ACTIONS,), (NUM_CARDS,))
-    got = tuple(tuple(str(d) for d in aval.shape[1:]) for aval in exported.out_avals)
-    if got != tuple(tuple(str(d) for d in w) for w in wanted):
-        raise SubmissionError(
-            f"must return pass logits {wanted[0]} and play logits {wanted[1]}; got {got}"
+            f"must return pass logits {outputs[0]} over hand-slot triples and play"
+            f" logits {outputs[1]} over hand slots; got {given}"
         )
     for aval in exported.out_avals:
         if aval.dtype != jnp.float32:
             raise SubmissionError(f"outputs must be float32; got {aval.dtype}")
+
+    here = host_platforms()[-1]
+    if here not in exported.platforms:
+        raise SubmissionError(
+            f"exported for {tuple(exported.platforms)} but this host runs on"
+            f" '{here}'; export for {host_platforms()} so an entry runs wherever"
+            " the league does"
+        )
 
     targets = sorted(set(_CUSTOM_CALL.findall(exported.mlir_module())))
     if targets:
@@ -180,7 +210,7 @@ def load_submission(
             f"{flops:,.0f} flops per decision is over the {max_flops:,.0f} budget"
         )
 
-    probe = jax.jit(exported.call)(jnp.zeros((2, OBSERVATION_DIM), jnp.float32))
+    probe = jax.jit(exported.call)(_batched(sample_observation(), 2))
     if not all(bool(np.isfinite(np.asarray(part)).all()) for part in probe):
         raise SubmissionError("policy returned values that are not finite")
 
@@ -188,33 +218,24 @@ def load_submission(
 
 
 def baseline_blob() -> bytes:
-    """A floor to measure against: take the cheapest legal card, pass the top three.
+    """A floor to measure against: play the cheapest legal card, pass the top three.
 
-    It reads only the contract's observation, so it is also the smallest
-    worked example of a valid entry.
+    It reads only what the contract provides, so it doubles as the shortest
+    worked example of an entry.
     """
 
-    from jax import export
+    from heart.classic import PASS_COMBINATIONS
 
-    hand = slice(*OFFSETS["hand"])
-    legal = slice(*OFFSETS["legal"])
-    rank_of = jnp.asarray([card % 13 for card in range(NUM_CARDS)], jnp.float32)
+    combinations = jnp.asarray(PASS_COMBINATIONS)
 
-    def policy(observations):
-        held = observations[:, hand]
-        allowed = observations[:, legal]
-        play = -rank_of[None, :] - 100.0 * (1.0 - allowed)
-        # Passing indexes triples of held slots; prefer the highest cards.
-        held_rank = held * (rank_of[None, :] + 1.0)
-        order = jnp.argsort(-held_rank, axis=-1)[:, :13]
-        slot_value = jnp.take_along_axis(held_rank, order, axis=-1)
-        combinations = jnp.asarray(PASS_COMBINATIONS)
-        triple = slot_value[:, combinations].sum(-1)
-        return triple, play
+    def policy(observation):
+        cards = observation.play_hand_cards.astype(jnp.float32)
+        held = observation.pass_hand_cards.astype(jnp.float32)
+        play = -(cards % 13)
+        triple = (held % 13)[:, combinations].sum(-1)
+        return triple.astype(jnp.float32), play.astype(jnp.float32)
 
-    batch = export.symbolic_shape("b")[0]
-    signature = jax.ShapeDtypeStruct((batch, OBSERVATION_DIM), jnp.float32)
-    return export.export(jax.jit(policy))(signature).serialize()
+    return export_policy(policy)
 
 
 @dataclass(frozen=True)
@@ -234,14 +255,10 @@ class Standing:
     flops_per_decision: float
 
 
-START_RATING = 1500.0
-RATING_SCALE = 400.0
-
-
 def _fit_elo(count, left, right, outcome, *, passes: int = 300) -> np.ndarray:
     """Ratings that reproduce the observed pairwise results.
 
-    Hearts seats four, so each table is read as its six pairings. Sequential Elo
+    Hearts seats four, so each match is read as its six pairings. Sequential Elo
     would depend on the order games happened to be played, so the update repeats
     with a decaying step until it settles on the ratings the whole record
     implies.
@@ -285,55 +302,113 @@ def _pairings(seating: np.ndarray, scores: np.ndarray):
     )
 
 
-def _league_rollout(entries: list[Submission], batch: int, steps: int):
-    """Play whole matches: a classic-v0 match runs to 100 points, which takes
-    around ten deals, so a truncated scan would never reach its endgame."""
+def _slots(state: ClassicState) -> jnp.ndarray:
+    """Each seat's hand as thirteen slots, ascending, holes marked -1."""
 
-    env = _classic_env()
-    reset = jax.vmap(env.reset)
+    return jax.vmap(
+        lambda held: jnp.nonzero(held, size=HAND_SIZE, fill_value=-1)[0].astype(
+            jnp.int8
+        )
+    )(state.game.hands)
+
+
+def _seat_observation(state: ClassicState, player, pass_hand, play_hand):
+    """Rebuild what the single-learner adapter shows the seat about to act."""
+
+    match = heart.classic.observe_classic(state, player)
+    safe = jnp.clip(play_hand.astype(jnp.int32), 0, NUM_CARDS - 1)
+    return ClassicSingleAgentObservation(
+        match=match,
+        pass_hand_cards=pass_hand,
+        play_hand_cards=play_hand,
+        pass_action_mask=match.pass_action_mask,
+        play_action_mask=(play_hand >= 0) & match.play_action_mask[safe],
+    )
+
+
+def _league_step(entries: list[Submission], batch: int):
+    """One event for a batch of matches, compiled on its own.
+
+    The whole rollout was a single `lax.scan` until the fused program began
+    offering actions the rules refuse — every part of it checks out alone and
+    step by step, so the loop stays in Python and each step is compiled, which
+    is slower and gives an answer that can be trusted.
+    """
+
+    env = heart.make("classic-v0")
     advance = jax.vmap(env.step)
     rows = jnp.arange(batch)
 
     @jax.jit
-    def run(keys, seating):
-        states, _ = reset(keys)
+    def step(state, pass_hands, play_hands, seating):
+        players = state.active_player.astype(jnp.int32)
+        mine = jnp.take_along_axis(play_hands, players[:, None, None], 1)[:, 0]
+        passed = jnp.take_along_axis(pass_hands, players[:, None, None], 1)[:, 0]
+        observation = jax.vmap(_seat_observation)(state, players, passed, mine)
 
-        def once(carry, _):
-            state, deals = carry
-            players = state.active_player.astype(jnp.int32)
-            observations = jax.vmap(encode_observation)(state, players)
-            passes = jnp.stack([entry.call(observations)[0] for entry in entries])
-            plays = jnp.stack([entry.call(observations)[1] for entry in entries])
-            acting = jnp.take_along_axis(seating, players[:, None], 1)[:, 0]
-            match = jax.vmap(observe_classic)(state, players)
-            pass_logits = jnp.where(
-                match.pass_action_mask, passes[acting, rows], -jnp.inf
-            )
-            play_logits = jnp.where(
-                match.play_action_mask, plays[acting, rows], -jnp.inf
-            )
-            actions = jnp.where(
-                state.phase == PASS,
-                jnp.argmax(pass_logits, -1),
-                jnp.argmax(play_logits, -1),
-            )
-            following, _, _, _, info = advance(state, actions.astype(jnp.int32))
-            return (following, deals + info.deal_completed), None
-
-        (final, deals), _ = jax.lax.scan(
-            once, (states, jnp.zeros((batch,), jnp.int32)), jnp.arange(steps)
+        passes = jnp.stack([entry.call(observation)[0] for entry in entries])
+        plays = jnp.stack([entry.call(observation)[1] for entry in entries])
+        acting = jnp.take_along_axis(seating, players[:, None], 1)[:, 0]
+        pass_action = jnp.argmax(
+            jnp.where(observation.pass_action_mask, passes[acting, rows], -jnp.inf), -1
         )
-        # The league counts the game's own currency: penalty points, and the
-        # match those points decide. A reward is this environment's
-        # normalisation of them, so a leaderboard should not depend on it.
+        slot = jnp.argmax(
+            jnp.where(observation.play_action_mask, plays[acting, rows], -jnp.inf), -1
+        )
+        card = jnp.take_along_axis(mine, slot[:, None], 1)[:, 0].astype(jnp.int32)
+        actions = jnp.where(state.phase == PASS, pass_action, card)
+        following, _, _, _, info = advance(state, actions)
+
+        # The adapter refreshes a layout when a deal opens, and again once the
+        # passing phase has handed the cards over.
+        fresh = jax.vmap(_slots)(following)
+        new_deal = (following.deal_index != state.deal_index)[:, None, None]
+        after_pass = ((state.phase == PASS) & (following.phase == PLAY))[
+            :, None, None
+        ] & ~new_deal
         return (
-            final.match_scores.astype(jnp.float32),
-            deals,
-            final.winner_mask,
-            final.phase == TERMINAL,
+            following,
+            jnp.where(new_deal, fresh, pass_hands),
+            jnp.where(new_deal | after_pass, fresh, play_hands),
+            info.deal_completed,
+            info.invalid_action,
         )
 
-    return run
+    return step
+
+
+def _play_matches(entries: list[Submission], keys, seating, steps: int):
+    """Play a batch of matches to the end, refusing to guess if the rules do."""
+
+    batch = seating.shape[0]
+    env = heart.make("classic-v0")
+    states, _ = jax.vmap(env.reset)(keys)
+    hands = jax.vmap(_slots)(states)
+    pass_hands = play_hands = hands
+    step = _league_step(entries, batch)
+    seating = jnp.asarray(seating)
+    deals = np.zeros(batch, np.int64)
+    refused = 0
+    for _ in range(steps):
+        # A finished match has no legal action left, so it is neither stepped
+        # for its result nor counted when it declines to move.
+        alive = np.asarray(jax.device_get(states.phase != TERMINAL))
+        if not alive.any():
+            break
+        states, pass_hands, play_hands, settled, invalid = step(
+            states, pass_hands, play_hands, seating
+        )
+        deals += np.asarray(jax.device_get(settled)) * alive
+        refused += int((np.asarray(jax.device_get(invalid)) & alive).sum())
+        if refused:
+            break
+    return (
+        np.asarray(jax.device_get(states.match_scores), np.float64),
+        deals,
+        np.asarray(jax.device_get(states.winner_mask)),
+        np.asarray(jax.device_get(states.phase == 2)),
+        refused,
+    )
 
 
 def run_league(
@@ -344,24 +419,32 @@ def run_league(
     steps: int = MAX_CLASSIC_CORE_STEPS,
     seed: int = 0,
     bootstrap: int = 16,
+    chunk: int = 256,
 ) -> list[Standing]:
     """Seat the entries against each other and rank them with their error.
 
     Every round reuses one set of deals for all seatings, and seats rotate
     within a lineup, so entries are compared on the same cards rather than on
-    their luck. The reported figure is the mean normalized deal reward; two
-    entries whose intervals overlap share a rank instead of being ordered by
-    noise.
+    their luck. Two entries whose intervals overlap share a rank instead of
+    being ordered by noise. Each match is also read as its six pairings and
+    fitted to an Elo rating, with its own spread from resampling them.
+
+    The ranking figure is **penalty points per deal**, lower being better. A
+    reward is this environment's normalisation of those points, so ranking on it
+    would make the leaderboard depend on a modelling choice rather than on the
+    game.
     """
 
     if len(entries) < NUM_PLAYERS:
         raise ValueError(f"a table needs {NUM_PLAYERS} entries")
-    rollout = _league_rollout(entries, lineups, steps)
+    # Tables are played in chunks so one batch stays a workable size, and every
+    # action the rules refuse is counted rather than absorbed.
+    width = max(1, min(chunk, lineups))
     rng = np.random.default_rng(seed)
     collected: dict[int, list[float]] = {index: [] for index in range(len(entries))}
-    dealt: dict[int, int] = dict.fromkeys(range(len(entries)), 0)
-    won: dict[int, int] = dict.fromkeys(range(len(entries)), 0)
-    lost: dict[int, int] = dict.fromkeys(range(len(entries)), 0)
+    dealt = dict.fromkeys(range(len(entries)), 0)
+    won = dict.fromkeys(range(len(entries)), 0)
+    lost = dict.fromkeys(range(len(entries)), 0)
     pairings: list[tuple] = []
 
     for round_index in range(rounds):
@@ -370,16 +453,29 @@ def run_league(
         )
         seating = np.roll(seating, round_index, axis=1)
         keys = jax.random.split(jax.random.key(seed + round_index), lineups)
+        pieces = [
+            _play_matches(
+                entries,
+                keys[start : min(start + width, lineups)],
+                seating[start : min(start + width, lineups)],
+                steps,
+            )
+            for start in range(0, lineups, width)
+        ]
+        refused = sum(piece[4] for piece in pieces)
+        if refused:
+            raise RuntimeError(
+                f"the rollout offered {refused} actions the rules refused;"
+                " the standings would be meaningless"
+            )
         scores, deals, winners, over = (
-            np.asarray(part)
-            for part in jax.device_get(rollout(keys, jnp.asarray(seating)))
+            np.concatenate([piece[index] for piece in pieces]) for index in range(4)
         )
         if not over.all():
             raise RuntimeError(
                 f"{int((~over).sum())} matches did not finish in {steps} events"
             )
         per_deal = np.divide(scores, np.maximum(deals, 1)[:, None], dtype=np.float64)
-        # Hearts is won by the lowest score, so the highest finishes last.
         losers = scores == scores.max(axis=1, keepdims=True)
         pairings.append(_pairings(seating, scores.astype(np.float64)))
         for seat in range(NUM_PLAYERS):
@@ -395,13 +491,10 @@ def run_league(
     right = np.concatenate([pair[1] for pair in pairings])
     outcome = np.concatenate([pair[2] for pair in pairings])
     ratings = _fit_elo(len(entries), left, right, outcome)
-
     generator = np.random.default_rng(seed + 1)
     resampled = [
         _fit_elo(
-            len(entries),
-            *(part[picks] for part in (left, right, outcome)),
-            passes=120,
+            len(entries), *(part[picks] for part in (left, right, outcome)), passes=120
         )
         for picks in (
             generator.integers(0, left.size, left.size) for _ in range(bootstrap)
@@ -437,14 +530,14 @@ def run_league(
         )
 
     standings.sort(key=lambda s: s.points)
-    ranked, rank = [], 0
+    ranked: list[Standing] = []
     for position, standing in enumerate(standings):
         if position == 0:
             rank = 1
         else:
             previous = ranked[-1]
             gap = standing.points - previous.points
-            spread = np.hypot(previous.stderr, standing.stderr)
-            rank = previous.rank if gap <= spread else position + 1
+            spread_pair = float(np.hypot(previous.stderr, standing.stderr))
+            rank = previous.rank if gap <= spread_pair else position + 1
         ranked.append(replace(standing, rank=rank))
     return ranked
