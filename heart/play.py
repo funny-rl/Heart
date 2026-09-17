@@ -272,11 +272,17 @@ PAGE = """<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>HEART — 사람 대전</title><style>
 :root{color-scheme:dark}
 body{margin:0;background:#0b0d12;color:#e8eaf0;font:15px/1.6 system-ui,sans-serif}
-.wrap{max-width:960px;margin:0 auto;padding:16px}
-h1{font-size:18px;margin:0 0 12px}
-iframe{width:100%;height:560px;border:1px solid #2a2f3a;border-radius:12px;background:#111;opacity:1;transition:opacity .13s ease}
-.bar{margin-top:14px;padding:14px;border:1px solid #2a2f3a;border-radius:12px;background:#12151c}
-.cards{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 4px;padding-top:12px}
+/* One screen: the table takes what is left after the controls. */
+.wrap{height:100vh;max-width:1100px;margin:0 auto;padding:10px 12px;
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px}
+h1{font-size:15px;margin:0;color:#9aa3b2;font-weight:600}
+.stage{position:relative;overflow:hidden;min-height:0;border:1px solid #2a2f3a;
+  border-radius:12px;background:#111}
+iframe{position:absolute;top:0;left:50%;width:1080px;height:790px;border:0;
+  transform-origin:top center;transform:translateX(-50%) scale(var(--k,1));
+  opacity:1;transition:opacity .13s ease}
+.bar{padding:10px 12px;border:1px solid #2a2f3a;border-radius:12px;background:#12151c}
+.cards{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px;padding-top:12px}
 button.card{position:relative;width:62px;height:88px;padding:0;border-radius:8px;
   border:1px solid #cbd5e1;background:linear-gradient(145deg,#fff,#e8edf4);
   color:#111827;box-shadow:0 5px 13px #0006;cursor:pointer;font:inherit;
@@ -289,6 +295,7 @@ button.card:hover:not(:disabled){transform:translateY(-4px)}
 button.card[aria-pressed=true]{transform:translateY(-11px);border:3px solid #fcd34d;
   box-shadow:0 10px 21px #0007,0 0 14px #fcd34d99}
 button.card:disabled{opacity:.3;cursor:not-allowed;box-shadow:none;filter:grayscale(.6)}
+@media(max-height:760px){button.card{width:50px;height:70px}}
 @media(max-width:640px){button.card{width:46px;height:68px}
   button.card .corner{font-size:10px;line-height:9px}button.card .pip{font-size:22px}}
 button.go{padding:9px 16px;border-radius:9px;border:1px solid #86efac;background:#123c2c;
@@ -300,11 +307,11 @@ button.go:disabled{opacity:.4;cursor:not-allowed}
 .turn b{color:#fcd34d}
 select{height:34px;padding:0 8px;border-radius:8px;border:1px solid #39404e;
   background:#1b202a;color:#e8eaf0;font:600 13px system-ui;cursor:pointer}
-.log{margin-top:10px;font:12px ui-monospace,monospace;color:#8b93a4;white-space:pre-wrap}
+.log{margin-top:7px;max-height:3.4em;overflow:hidden;font:12px/1.7 ui-monospace,monospace;color:#8b93a4;white-space:pre-wrap}
 @media(max-width:640px){iframe{height:420px}}
 </style></head><body><div class="wrap">
 <h1>HEART — 사람 대전</h1>
-<iframe id="view" title="현재 판"></iframe>
+<div class="stage" id="stage"><iframe id="view" title="현재 판"></iframe></div>
 <div class="bar">
   <div class="row">
     <div id="turn" class="turn"></div>
@@ -334,6 +341,16 @@ const again = document.getElementById('again');
 const logBox = document.getElementById('log');
 const turnBox = document.getElementById('turn');
 const speed = document.getElementById('speed');
+const stage = document.getElementById('stage');
+
+function fit() {
+  // Scale the fixed-size table document into whatever height is left over,
+  // so the hand is always reachable without scrolling.
+  const box = stage.getBoundingClientRect();
+  if (!box.width || !box.height) return;
+  stage.style.setProperty('--k', Math.min(box.width / 1080, box.height / 790));
+}
+window.addEventListener('resize', fit);
 
 async function post(path, body) {
   const response = await fetch(path, {method: 'POST',
@@ -378,6 +395,7 @@ function draw(s) {
     : '선턴 <b>P' + s.leader + '</b> · 차례 P' + s.active
       + (s.settling ? ' · 트릭 정리 중' : '');
   logBox.textContent = (s.log || []).join('\\n');
+  fit();
   cards.replaceChildren();
   submit.hidden = true;
   again.hidden = false;
@@ -435,6 +453,7 @@ again.onclick = () => {
   if (timer !== null) { clearTimeout(timer); timer = null; }
   act('/new', {});
 };
+fit();
 fetch('/state').then(r => r.json()).then(s => { draw(s); pace(s); });
 </script></body></html>"""
 
