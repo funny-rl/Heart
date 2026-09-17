@@ -202,8 +202,8 @@ package. See the [human play contract](docs/play.md).
 Policies are submitted as portable computation graphs, so any architecture is
 welcome and the host never imports submitter code. Entries are checked against a
 fixed signature, a size limit, and a per-decision compute budget, then seated
-against each other on shared deals and ranked by Elo and mean deal reward, each
-with its error.
+against each other on shared deals and ranked on penalty points per deal, with
+an Elo beside it and an error on both.
 
 **→ [Submission rules and standings](docs/leaderboard.md)**
 

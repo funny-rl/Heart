@@ -14,38 +14,42 @@
 
 <div align="center">
 
-### 🥇 &nbsp; PSRO &nbsp; — &nbsp; `1531` Elo
+### 🥇 &nbsp; PSRO &nbsp; · &nbsp; **6.19** penalty points per deal
 
 <sub>8,192 tables · rotating seats · shared deals · every rank separated</sub>
 
 </div>
 
-| | Entry | Elo | | Deal reward | Seats |
-|:--:|---|--:|:--|--:|--:|
-| 🥇 | **PSRO** | **1531** <sub>± 2</sub> | `███████████` | **+0.0308** <sub>± 0.0022</sub> | 6,532 |
-| 🥈 | **RL** | **1516** <sub>± 2</sub> | `█████████` | **+0.0148** <sub>± 0.0021</sub> | 6,564 |
-| 🥉 | rule-hard | 1499 <sub>± 2</sub> | `██████` | −0.0007 <sub>± 0.0023</sub> | 6,618 |
-| 4 | rule-medium | 1482 <sub>± 2</sub> | `███` | −0.0186 <sub>± 0.0023</sub> | 6,520 |
-| 5 | rule-easy | 1471 <sub>± 2</sub> | `█` | −0.0263 <sub>± 0.0023</sub> | 6,534 |
+| | Entry | Penalty / deal | vs field | Elo | Deals |
+|:--:|---|--:|--:|--:|--:|
+| 🥇 | **PSRO** | **6.187** <sub>± 0.044</sub> | **−0.59** | **1531** <sub>± 2</sub> | 6,532 |
+| 🥈 | **RL** | **6.482** <sub>± 0.044</sub> | −0.29 | **1517** <sub>± 2</sub> | 6,564 |
+| 🥉 | rule-hard | 6.779 <sub>± 0.046</sub> | +0.01 | 1499 <sub>± 2</sub> | 6,618 |
+| 4 | rule-medium | 7.134 <sub>± 0.047</sub> | +0.36 | 1482 <sub>± 2</sub> | 6,520 |
+| 5 | rule-easy | 7.284 <sub>± 0.046</sub> | +0.51 | 1471 <sub>± 2</sub> | 6,534 |
 
 <div align="center">
 <sub>
 
-`RL` — recurrent PPO trained on its own &nbsp;•&nbsp; `PSRO` — best response to a population containing `RL` and the rule tiers
+**Lower is better** — these are Hearts penalty points, the game's own currency.
+`RL` is recurrent PPO trained alone; `PSRO` is the best response a population
+method produced against a field containing `RL` and the rule tiers.
 
 </sub>
 </div>
 
-Rewards sum to **−0.0001**, as a zero-sum field must. Every rank is separated:
-the closest pair, `rule-medium` to `rule-easy`, differs by 0.008 against a
-combined error of 0.003.
+A deal hands 26 points to four seats, so a field averages **6.5**; the 6.77 here
+is higher because a shot moon pays 78. Every rank is separated — the closest
+pair, `rule-medium` to `rule-easy`, differs by 0.15 against a combined error of
+0.066 — and the rule tiers land in their designed order, which is a check on the
+measurement as much as on them.
 
 > **Read it honestly.** This field is close to what `PSRO` trained against, so
 > the league flatters it. On a different measurement — each policy seated
-> against three copies of one rule tier — `RL` finishes ahead of `PSRO` by about
-> 0.01 on all three tiers. Both numbers are real and they answer different
-> questions: how a policy fares *in this field*, and how it generalises to
-> opponents it never met. A leaderboard answers only the first.
+> against three copies of one rule tier — `RL` finishes ahead. Both numbers are
+> real and they answer different questions: how a policy fares *in this field*,
+> and how it generalises to opponents it never met. A leaderboard answers only
+> the first.
 
 <sub>The five entries above are this project's own policies. They read richer
 observations than this contract offers and so cannot be submitted through it;
@@ -77,8 +81,19 @@ system, the network, or the host process.
 ```
 
 `b` must be exported as a **symbolic** dimension so the host picks the batch.
-The host masks logits against the rules before drawing an action, so an entry
-may leave illegal actions unscored. Everything inside the graph is yours.
+Everything inside the graph is yours.
+
+Three things follow from the signature, and they are easy to miss:
+
+- **The host masks and then takes the argmax.** Illegal actions are set to
+  negative infinity before the choice, so an entry may leave them unscored. Only
+  the ordering of legal logits matters; their scale does not.
+- **An entry is deterministic.** The contract passes no random key, so a policy
+  is a fixed function of the observation and cannot play a mixed strategy.
+  Variety across games comes from the deals, not from the entry.
+- **Both heads are always called.** During the passing phase the play logits are
+  ignored and vice versa, so an entry may return anything for the head that is
+  not in use — but it must return the right shape.
 
 ## What a policy sees
 
@@ -166,23 +181,25 @@ Entries meet in sampled four-seat line-ups. **Seats rotate** and every round
 **deals from a shared seed**, so entries are compared on the same cards rather
 than on their luck.
 
-Two figures are reported, because they answer different questions:
+The ranking figure is **penalty points per deal, lower being better**. That is
+the game's own score. A reward is this environment's normalisation of those
+points — zero-sum, divided by the deal's total — and ranking on it would make
+the standings depend on a modelling choice rather than on Hearts. Two entries
+whose intervals overlap **share a rank** rather than being ordered by noise.
 
-- **Deal reward** — the mean normalized zero-sum reward per deal. It is the
-  quantity the environment optimises and has the smaller variance.
-- **Elo** — every table is read as its six seat-versus-seat pairings and fitted
-  to a rating. Sequential Elo would depend on the order games happened to run,
-  so the fit repeats to convergence over the whole record; the spread comes from
-  resampling the pairings.
+**Elo** is reported beside it. Every table is read as its six seat-versus-seat
+pairings, won by the lower score, and fitted to a rating; sequential Elo would
+depend on the order games happened to run, so the fit repeats over the whole
+record. Its spread comes from resampling the pairings.
 
-Entries whose intervals overlap **share a rank** rather than being ordered by
-noise. That is not a formality: at 3,000 seats per entry the error is ±0.003 and
-most of a five-entry field ties. Resolving differences of 0.01 takes on the
-order of 10,000 seats each.
+Sharing a rank is not a formality. At roughly 6,500 deals per entry the error on
+points is ±0.05, and separating entries that differ by 0.1 needs that order of
+sample. A field measured over a few hundred deals will mostly tie, and it should
+say so.
 
 ```python
 from heart.contest import run_league
 
 for standing in run_league(entries, lineups=2048, rounds=8, seed=0):
-    print(standing.rank, standing.name, standing.elo, standing.reward)
+    print(standing.rank, standing.name, standing.points, standing.elo)
 ```

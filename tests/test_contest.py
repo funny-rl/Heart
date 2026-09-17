@@ -188,7 +188,7 @@ def test_the_baseline_entry_satisfies_its_own_contract():
     assert plays.shape == (5, NUM_CARDS)
 
 
-def test_a_league_ranks_every_entry_and_conserves_reward():
+def test_a_league_ranks_every_entry_on_the_scores_it_deals():
     entries = [
         load_submission(contest.baseline_blob(), "baseline"),
         _entry("alpha", 1),
@@ -199,12 +199,17 @@ def test_a_league_ranks_every_entry_and_conserves_reward():
 
     assert {standing.name for standing in table} == {e.name for e in entries}
     assert [s.rank for s in table] == sorted(s.rank for s in table)
-    assert all(standing.seats > 0 for standing in table)
-    # Deal rewards are zero-sum, so a league of every seat cannot create value.
-    assert abs(sum(standing.reward for standing in table)) < 5e-3
+    assert all(standing.deals > 0 for standing in table)
+    # A deal hands out 26 points between four seats, so the field averages 6.5;
+    # moon shots pay 78 and pull it a little higher.
+    average = sum(standing.points for standing in table) / len(table)
+    assert 6.0 < average < 8.0
+    assert all(0.0 <= standing.points < 26.0 for standing in table)
+    # Lower is better, so the table reads upward in points.
+    assert [s.points for s in table] == sorted(s.points for s in table)
     # Ratings are centred on the starting rating by construction.
-    average = sum(standing.elo for standing in table) / len(table)
-    assert abs(average - contest.START_RATING) < 1e-6
+    rating = sum(standing.elo for standing in table) / len(table)
+    assert abs(rating - contest.START_RATING) < 1e-6
     assert all(standing.elo_stderr >= 0 for standing in table)
 
 
@@ -218,6 +223,6 @@ def test_ratings_follow_the_pairwise_record():
 
     left = np.array([0, 0, 0, 1, 1, 2])
     right = np.array([1, 2, 3, 2, 3, 3])
-    outcome = np.ones(6, np.float64)  # the lower index always wins
+    outcome = np.ones(6, np.float64)  # the lower index always takes the pairing
     ratings = contest._fit_elo(4, left, right, outcome)
     assert list(np.argsort(-ratings)) == [0, 1, 2, 3]

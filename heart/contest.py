@@ -221,11 +221,11 @@ class Standing:
 
     rank: int
     name: str
-    reward: float
+    points: float
     stderr: float
     elo: float
     elo_stderr: float
-    seats: int
+    deals: int
     flops_per_decision: float
 
 
@@ -259,15 +259,19 @@ def _fit_elo(count, left, right, outcome, *, passes: int = 300) -> np.ndarray:
     return ratings
 
 
-def _pairings(seating: np.ndarray, totals: np.ndarray):
-    """Every table becomes its six seat-versus-seat comparisons."""
+def _pairings(seating: np.ndarray, points: np.ndarray):
+    """Every table becomes its six seat-versus-seat comparisons.
+
+    Hearts is won by the lowest score, so the seat with fewer penalty points
+    takes the pairing.
+    """
 
     left, right, outcome = [], [], []
     for first in range(NUM_PLAYERS):
         for second in range(first + 1, NUM_PLAYERS):
             left.append(seating[:, first])
             right.append(seating[:, second])
-            gap = totals[:, first] - totals[:, second]
+            gap = points[:, second] - points[:, first]
             outcome.append(np.where(gap > 0, 1.0, np.where(gap < 0, 0.0, 0.5)))
     return (
         np.concatenate(left),
@@ -287,7 +291,7 @@ def _league_rollout(entries: list[Submission], batch: int, steps: int):
         states, _ = reset(keys)
 
         def once(carry, _):
-            state, totals = carry
+            state, points, deals = carry
             players = state.active_player.astype(jnp.int32)
             observations = jax.vmap(encode_observation)(state, players)
             passes = jnp.stack([entry.call(observations)[0] for entry in entries])
@@ -305,15 +309,26 @@ def _league_rollout(entries: list[Submission], batch: int, steps: int):
                 jnp.argmax(pass_logits, -1),
                 jnp.argmax(play_logits, -1),
             )
-            following, _, rewards, _, _ = advance(state, actions.astype(jnp.int32))
-            return (following, totals + rewards), None
+            following, _, _, _, info = advance(state, actions.astype(jnp.int32))
+            # The league counts the game's own currency: penalty points. A
+            # reward is this environment's normalisation of them, and a
+            # leaderboard should not depend on that choice.
+            settled = info.deal_completed[:, None]
+            points = points + jnp.where(
+                settled, following.last_deal_scores.astype(jnp.float32), 0.0
+            )
+            return (following, points, deals + info.deal_completed), None
 
-        (_, totals), _ = jax.lax.scan(
+        (_, points, deals), _ = jax.lax.scan(
             once,
-            (states, jnp.zeros((batch, NUM_PLAYERS), jnp.float32)),
+            (
+                states,
+                jnp.zeros((batch, NUM_PLAYERS), jnp.float32),
+                jnp.zeros((batch,), jnp.int32),
+            ),
             jnp.arange(steps),
         )
-        return totals
+        return points, deals
 
     return run
 
@@ -349,13 +364,16 @@ def run_league(
         )
         seating = np.roll(seating, round_index, axis=1)
         keys = jax.random.split(jax.random.key(seed + round_index), lineups)
-        totals = np.asarray(jax.device_get(rollout(keys, jnp.asarray(seating))))
-        pairings.append(_pairings(seating, totals))
+        points, deals = jax.device_get(rollout(keys, jnp.asarray(seating)))
+        points, deals = np.asarray(points), np.asarray(deals)
+        settled = deals > 0
+        per_deal = np.divide(points, np.maximum(deals, 1)[:, None], dtype=np.float64)
+        pairings.append(_pairings(seating[settled], per_deal[settled]))
         for seat in range(NUM_PLAYERS):
             for index in range(len(entries)):
-                chosen = seating[:, seat] == index
+                chosen = settled & (seating[:, seat] == index)
                 if chosen.any():
-                    collected[index].extend(totals[chosen, seat] / 4.0)
+                    collected[index].extend(per_deal[chosen, seat])
 
     left = np.concatenate([pair[0] for pair in pairings])
     right = np.concatenate([pair[1] for pair in pairings])
@@ -399,14 +417,14 @@ def run_league(
             )
         )
 
-    standings.sort(key=lambda s: -s.reward)
+    standings.sort(key=lambda s: s.points)
     ranked, rank = [], 0
     for position, standing in enumerate(standings):
         if position == 0:
             rank = 1
         else:
             previous = ranked[-1]
-            gap = previous.reward - standing.reward
+            gap = standing.points - previous.points
             spread = np.hypot(previous.stderr, standing.stderr)
             rank = previous.rank if gap <= spread else position + 1
         ranked.append(replace(standing, rank=rank))

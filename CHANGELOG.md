@@ -15,9 +15,10 @@ separately version game semantics.
   size limit, and a per-decision flop budget measured from the compiled graph.
   See [the submission rules](docs/leaderboard.md).
 - `heart.contest.run_league`: entries meet in sampled four-seat line-ups with
-  rotating seats over shared deals, and are ranked by Elo fitted from the six
-  pairings each table implies and by mean deal reward. Both carry their error,
-  and entries whose intervals overlap share a rank.
+  rotating seats over shared deals, and are ranked on penalty points per deal —
+  the game's own score rather than this environment's normalisation of it — with
+  an Elo fitted from the six pairings each table implies. Both carry their
+  error, and entries whose intervals overlap share a rank.
 - `heart.contest.baseline_blob`: a complete valid entry that plays the cheapest
   legal card, both as the floor of the standings and as the shortest example of
   the contract.
