@@ -27,7 +27,13 @@ import jax.numpy as jnp
 import numpy as np
 
 from heart.agents import make_rule_pass_policy, make_rule_policy
-from heart.cards import NUM_PLAYERS, card_name
+from heart.cards import (
+    HEARTS,
+    NUM_PLAYERS,
+    RANK_NAMES,
+    SUIT_SYMBOLS,
+    card_name,
+)
 from heart.classic import (
     PASS,
     PASS_COMBINATIONS,
@@ -91,6 +97,20 @@ def load_seat_policy(spec: str) -> SeatPolicy:
     factory: Callable[..., SeatPolicy] = getattr(module, matched.group("attr"))
     argument = matched.group("argument")
     return factory() if argument is None else factory(argument)
+
+
+def _card_payload(slot: int, card: int) -> dict:
+    """Describe one card well enough for the page to draw a real face."""
+
+    suit, rank = divmod(card, 13)
+    return {
+        "slot": slot,
+        "card": card,
+        "name": card_name(card),
+        "rank": RANK_NAMES[rank],
+        "suit": SUIT_SYMBOLS[suit],
+        "red": suit in (1, HEARTS),
+    }
 
 
 def hand_cards(state: ClassicState, player: int) -> list[int]:
@@ -204,8 +224,7 @@ class HumanGame:
         if self.waiting_for_human:
             cards = hand_cards(self.state, self.human_seat)
             payload["hand"] = [
-                {"slot": slot, "card": card, "name": card_name(card)}
-                for slot, card in enumerate(cards)
+                _card_payload(slot, card) for slot, card in enumerate(cards)
             ]
             if int(self.state.phase) != PASS:
                 payload["legal"] = self.legal_plays()
@@ -224,11 +243,21 @@ body{margin:0;background:#0b0d12;color:#e8eaf0;font:15px/1.6 system-ui,sans-seri
 h1{font-size:18px;margin:0 0 12px}
 iframe{width:100%;height:560px;border:1px solid #2a2f3a;border-radius:12px;background:#111}
 .bar{margin-top:14px;padding:14px;border:1px solid #2a2f3a;border-radius:12px;background:#12151c}
-.cards{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
-button.card{min-width:58px;padding:9px 10px;border-radius:9px;border:1px solid #39404e;
-  background:#1b202a;color:#e8eaf0;font:600 15px system-ui;cursor:pointer}
-button.card[aria-pressed=true]{border-color:#fcd34d;background:#3a2f12;color:#fcd34d}
-button.card:disabled{opacity:.32;cursor:not-allowed}
+.cards{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 4px;padding-top:12px}
+button.card{position:relative;width:62px;height:88px;padding:0;border-radius:8px;
+  border:1px solid #cbd5e1;background:linear-gradient(145deg,#fff,#e8edf4);
+  color:#111827;box-shadow:0 5px 13px #0006;cursor:pointer;font:inherit;
+  transition:transform .09s ease,box-shadow .09s ease}
+button.card.red{color:#d91f45}
+button.card .corner{position:absolute;top:5px;left:6px;text-align:left;
+  font:800 13px/12px Georgia,serif}
+button.card .pip{position:absolute;inset:0;display:grid;place-items:center;font-size:29px}
+button.card:hover:not(:disabled){transform:translateY(-4px)}
+button.card[aria-pressed=true]{transform:translateY(-11px);border:3px solid #fcd34d;
+  box-shadow:0 10px 21px #0007,0 0 14px #fcd34d99}
+button.card:disabled{opacity:.3;cursor:not-allowed;box-shadow:none;filter:grayscale(.6)}
+@media(max-width:640px){button.card{width:46px;height:68px}
+  button.card .corner{font-size:10px;line-height:9px}button.card .pip{font-size:22px}}
 button.go{padding:9px 16px;border-radius:9px;border:1px solid #86efac;background:#123c2c;
   color:#86efac;font:600 15px system-ui;cursor:pointer}
 button.go:disabled{opacity:.4;cursor:not-allowed}
@@ -280,8 +309,15 @@ function draw(s) {
   submit.disabled = true;
   for (const item of s.hand) {
     const button = document.createElement('button');
-    button.className = 'card';
-    button.textContent = item.name;
+    button.className = item.red ? 'card red' : 'card';
+    button.setAttribute('aria-label', item.name);
+    const corner = document.createElement('span');
+    corner.className = 'corner';
+    corner.append(item.rank, document.createElement('br'), item.suit);
+    const pip = document.createElement('span');
+    pip.className = 'pip';
+    pip.textContent = item.suit;
+    button.append(corner, pip);
     if (passing) {
       button.setAttribute('aria-pressed', 'false');
       button.onclick = () => {

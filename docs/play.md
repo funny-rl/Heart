@@ -40,8 +40,8 @@ outside this distribution and bring their own dependencies.
 
 A snapshot carries `view` (a standalone HTML rendering from the person's seat),
 `phase`, `your_turn`, `finished`, `seat`, `scores`, `deal`, `log`, the `hand` as
-`{slot, card, name}` entries, and `legal` card ids during `PLAY`. Finished
-matches add `winners`.
+`{slot, card, name, rank, suit, red}` entries — enough for the page to draw a
+card face — and `legal` card ids during `PLAY`. Finished matches add `winners`.
 
 Rejected actions answer `400` and leave the match untouched: an illegal card, a
 malformed pass selection, and acting out of turn are all refused by the same
