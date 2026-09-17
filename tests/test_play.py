@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import itertools
 import json
+import re
 import threading
 import urllib.error
 import urllib.request
@@ -132,6 +134,28 @@ def test_match_plays_through_to_a_winner():
     assert max(snapshot["scores"]) >= 100
 
 
+def test_page_defines_every_element_its_script_looks_up():
+    """A missing element makes the page hang on its first render."""
+
+    from heart.play import PAGE
+
+    wanted = set(re.findall(r"getElementById\('([^']+)'\)", PAGE))
+    assert wanted
+    missing = [name for name in wanted if f'id="{name}"' not in PAGE]
+    assert not missing, f"script reads elements the page never defines: {missing}"
+
+
+def test_page_calls_every_function_its_script_defines():
+    """A helper that is never invoked leaves the table frozen mid-turn."""
+
+    from heart.play import PAGE
+
+    defined = set(re.findall(r"(?:async\s+)?function\s+(\w+)\s*\(", PAGE))
+    assert defined
+    unused = [name for name in defined if len(re.findall(rf"\b{name}\s*\(", PAGE)) < 2]
+    assert not unused, f"script defines but never calls: {unused}"
+
+
 def _request(url, payload=None):
     data = None if payload is None else json.dumps(payload).encode()
     headers = {} if data is None else {"content-type": "application/json"}
@@ -165,6 +189,18 @@ def test_server_serves_the_page_and_applies_actions():
         stepped = json.loads(body)
         assert status == 200
         assert len(stepped["log"]) == len(after["log"]) + 1
+
+        # A batched advance returns one frame per action, in order.
+        status, body = _request(base + "/advance", {"steps": 8})
+        frames = json.loads(body)["frames"]
+        assert status == 200 and frames
+        for earlier, later in itertools.pairwise(frames):
+            assert len(later["log"]) == len(earlier["log"]) + 1
+        assert frames[-1]["your_turn"] or frames[-1]["finished"]
+
+        with pytest.raises(urllib.error.HTTPError) as bad_steps:
+            _request(base + "/advance", {"steps": 0})
+        assert bad_steps.value.code == 400
 
         with pytest.raises(urllib.error.HTTPError) as refused:
             _request(base + "/action", {"slots": [0, 0, 1]})

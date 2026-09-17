@@ -12,6 +12,7 @@ which keeps training dependencies out of the environment distribution.
 from __future__ import annotations
 
 import argparse
+import functools
 import html
 import importlib
 import json
@@ -60,8 +61,14 @@ class SeatPolicy(Protocol):
     def __call__(self, state: ClassicState, player: int, key: jax.Array) -> int: ...
 
 
+@functools.cache
 def make_rule_seat_policy(difficulty: str) -> SeatPolicy:
-    """Wrap the packaged rule tiers in the seat-policy calling convention."""
+    """Wrap the packaged rule tiers in the seat-policy calling convention.
+
+    Cached per tier so seats sharing a difficulty share one compiled policy;
+    three separate closures meant compiling the same tier three times, which a
+    person waiting on the table feels as a pause on every early turn.
+    """
 
     if difficulty not in RULE_TIERS:
         raise ValueError(f"unknown rule tier: {difficulty}")
@@ -291,6 +298,17 @@ select{height:34px;padding:0 8px;border-radius:8px;border:1px solid #39404e;
 <h1>HEART — 사람 대전</h1>
 <iframe id="view" title="현재 판"></iframe>
 <div class="bar">
+  <div class="row">
+    <div id="turn" class="turn"></div>
+    <label class="turn">진행 속도
+      <select id="speed">
+        <option value="1200">느리게</option>
+        <option value="700" selected>보통</option>
+        <option value="220">빠르게</option>
+        <option value="0">즉시</option>
+      </select>
+    </label>
+  </div>
   <div id="prompt" class="msg">불러오는 중…</div>
   <div id="cards" class="cards"></div>
   <button id="submit" class="go" hidden>3장 넘기기</button>
@@ -299,6 +317,7 @@ select{height:34px;padding:0 8px;border-radius:8px;border:1px solid #39404e;
 </div></div><script>
 let picked = [];
 let timer = null;
+let framed = false;
 const view = document.getElementById('view');
 const prompt = document.getElementById('prompt');
 const cards = document.getElementById('cards');
@@ -314,25 +333,41 @@ async function post(path, body) {
   if (!response.ok) { prompt.textContent = await response.text(); return null; }
   return response.json();
 }
-function pace(s) {
+function paint(markup) {
+  // Swapping only the body keeps the parsed stylesheet, which is most of the
+  // document; re-feeding srcdoc every frame makes the table stutter.
+  const doc = framed ? view.contentDocument : null;
+  if (!doc || !doc.body) { view.srcdoc = markup; framed = true; return; }
+  const parsed = new DOMParser().parseFromString(markup, 'text/html');
+  doc.body.replaceChildren(...parsed.body.childNodes);
+}
+async function pace(s) {
   if (timer !== null) { clearTimeout(timer); timer = null; }
   if (!s.pending) return;
+  // One round trip per turn; the page then paces the frames locally.
+  const reply = await post('/advance', {steps: 24});
+  if (!reply || !reply.frames || !reply.frames.length) return;
   const base = Number(speed.value);
-  // Hold the completed trick a little longer than an ordinary card.
-  const wait = s.settling ? Math.max(base, 240) * 2 : base;
-  timer = setTimeout(async () => {
-    const next = await post('/advance', {});
-    if (next) draw(next);
-  }, wait);
+  let at = 0;
+  const step = () => {
+    const frame = reply.frames[at++];
+    draw(frame);
+    if (at < reply.frames.length) {
+      // Hold a completed trick longer than an ordinary card.
+      const wait = frame.settling ? Math.max(base, 240) * 2 : base;
+      timer = setTimeout(step, wait);
+    }
+  };
+  step();
 }
 function draw(s) {
-  view.style.opacity = '.45';
-  view.srcdoc = s.view;
-  setTimeout(() => { view.style.opacity = '1'; }, 70);
+  view.style.opacity = '.62';
+  paint(s.view);
+  setTimeout(() => { view.style.opacity = '1'; }, 40);
   turnBox.innerHTML = s.finished ? ''
-    : '\uc120\ud134 <b>P' + s.leader + '</b> \u00b7 \ucc28\ub840 P' + s.active
-      + (s.settling ? ' \u00b7 \ud2b8\ub9ad \uc815\ub9ac \uc911' : '');
-  logBox.textContent = (s.log || []).join('\\n');
+    : '선턴 <b>P' + s.leader + '</b> · 차례 P' + s.active
+      + (s.settling ? ' · 트릭 정리 중' : '');
+  logBox.textContent = (s.log || []).join('\n');
   cards.replaceChildren();
   submit.hidden = true;
   again.hidden = !s.finished;
@@ -346,8 +381,7 @@ function draw(s) {
   }
   if (!s.your_turn) { prompt.textContent = '상대를 기다리는 중…'; return; }
   const passing = s.phase === 0;
-  prompt.textContent = passing ? '넘길 카드 3장을 고르세요.'
-                               : '낼 카드를 고르세요.';
+  prompt.textContent = passing ? '넘길 카드 3장을 고르세요.' : '낼 카드를 고르세요.';
   submit.hidden = !passing;
   submit.disabled = true;
   for (const item of s.hand) {
@@ -372,16 +406,20 @@ function draw(s) {
       };
     } else {
       button.disabled = !s.legal.includes(item.card);
-      button.onclick = async () => draw(await post('/action', {card: item.card}));
+      button.onclick = () => act('/action', {card: item.card});
     }
     cards.append(button);
   }
 }
-submit.onclick = async () => { const s = await post('/action', {slots: picked});
-  if (s) draw(s); };
-again.onclick = async () => draw(await post('/new', {}));
-speed.onchange = () => { if (timer !== null) fetch('/state').then(r => r.json()).then(draw); };
-fetch('/state').then(r => r.json()).then(draw);
+async function act(path, body) {
+  const s = await post(path, body);
+  if (!s) return;
+  draw(s);
+  pace(s);
+}
+submit.onclick = () => act('/action', {slots: picked});
+again.onclick = () => act('/new', {});
+fetch('/state').then(r => r.json()).then(s => { draw(s); pace(s); });
 </script></body></html>"""
 
 
@@ -423,7 +461,17 @@ def make_handler(game: HumanGame, lock: threading.Lock):
                     if self.path == "/new":
                         game.reset(game.seed + 1)
                     elif self.path == "/advance":
-                        game.advance_once()
+                        steps = int(body.get("steps", 1))
+                        if not 1 <= steps <= 64:
+                            raise ValueError("steps must be 1..64")
+                        frames = []
+                        for _ in range(steps):
+                            if not game.advance_once():
+                                break
+                            frames.append(game.snapshot())
+                        if "steps" in body:
+                            self._json({"frames": frames})
+                            return
                     elif self.path == "/action":
                         if "slots" in body:
                             game.play_human(pass_action_for(body["slots"]))
@@ -442,6 +490,21 @@ def make_handler(game: HumanGame, lock: threading.Lock):
                 self._json(game.snapshot())
 
     return Handler
+
+
+def warm_up(seats: dict[int, SeatPolicy], *, seed: int, actions: int = 24) -> None:
+    """Compile the transition and every seat policy before anyone is waiting."""
+
+    scratch = HumanGame(seats=seats, human_seat=0, seed=seed)
+    for _ in range(actions):
+        if scratch.finished:
+            break
+        if scratch.pending:
+            scratch.advance_once()
+        elif int(scratch.state.phase) == PASS:
+            scratch.play_human(pass_action_for([0, 1, 2]))
+        else:
+            scratch.play_human(scratch.legal_plays()[0])
 
 
 def serve(game: HumanGame, host: str = "127.0.0.1", port: int = 8000):
@@ -472,8 +535,10 @@ def main(argv: list[str] | None = None) -> None:
         specs = specs * len(others)
     if len(specs) != len(others):
         raise SystemExit(f"--seat expects 1 or {len(others)} values, got {len(specs)}")
+    seats = {seat: load_seat_policy(spec) for seat, spec in zip(others, specs)}
+    warm_up(seats, seed=arguments.seed + 1)
     game = HumanGame(
-        seats={seat: load_seat_policy(spec) for seat, spec in zip(others, specs)},
+        seats=seats,
         human_seat=arguments.human_seat,
         seed=arguments.seed,
     )
