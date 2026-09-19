@@ -364,10 +364,10 @@ heart.save_classic_replay_html(classic_frames, "classic-replay.html", viewer=0)
 ```
 
 HTML replays provide play/pause, frame stepping, a timeline, speed controls,
-and keyboard navigation. Every hand is visible. `viewer` only marks the local
-player and rotates that seat to the bottom; `viewer=None` selects a neutral
-spectator orientation. Generated outputs do not belong in source control. See
-the [rendering contract](docs/rendering.md).
+and keyboard navigation. By default, only player 0's hand is visible; opponents
+are shown face down. Pass `viewer=0` through `viewer=3` for another seat, or
+`viewer=None` for an omniscient debugging view. Generated outputs do not belong
+in source control. See the [rendering contract](docs/rendering.md).
 
 ## Release status
 

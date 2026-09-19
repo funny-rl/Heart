@@ -328,15 +328,7 @@ def _seat_observation(state: ClassicState, player, pass_hand, play_hand):
 def _carry_layouts(
     state: ClassicState, following: ClassicState, pass_hands, play_hands
 ):
-    """Age the seats' slot layouts by one event, the way the adapter does.
-
-    Both layouts are refreshed when a deal opens, and the play layout again
-    once passing has handed the cards over. This has to reproduce the adapter
-    rather than improve on it: a contract that is the environment's interface
-    everywhere except one phase is a second convention wearing the first one's
-    name. `test_the_league_shows_a_seat_what_the_adapter_shows_a_learner`
-    holds the two together.
-    """
+    """Update hand-slot layouts at deal and pass boundaries."""
 
     fresh = jax.vmap(_slots)(following)
     new_deal = (following.deal_index != state.deal_index)[:, None, None]

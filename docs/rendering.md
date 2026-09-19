@@ -112,8 +112,9 @@ GIF rendering is a host-only convenience. Output paths must end in `.gif`.
 Non-16:9 sizes use a centered 960×540 virtual canvas with letterboxing rather
 than distorting seat coordinates.
 
-Generated output reveals every player's cards and may be large when many
-matches are retained. Treat it as evaluation output, not a training artifact;
+Output with an integer `viewer` keeps opponent hands private. Explicit
+`viewer=None` output reveals every hand. Replays may be large when many matches
+are retained. Treat it as evaluation output, not a training artifact;
 generated game and replay HTML files are ignored by Git.
 
 HTML replay is the canonical inspectable output in 0.1.0. MP4 encoding and

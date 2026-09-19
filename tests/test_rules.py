@@ -45,6 +45,11 @@ def test_reset_deals_every_card_once():
     assert bool(observation.action_mask[heart.TWO_OF_CLUBS])
 
 
+def test_deal_env_uses_the_classic_deal_rules():
+    assert heart.DealEnv().rules == heart.ClassicRules().deal_rules
+    assert heart.DealEnv().rules.queen_of_spades_penalty == 13
+
+
 def test_full_deal_has_fixed_horizon_and_terminal_reward_contract():
     env = heart.DealEnv()
     state, observation, rewards, terminated = play_to_end(env, jax.random.key(11))
@@ -52,7 +57,7 @@ def test_full_deal_has_fixed_horizon_and_terminal_reward_contract():
     assert int(state.num_cards_played) == 52
     assert int(state.trick_index) == 13
     assert int(state.hands.sum()) == 0
-    assert int(state.penalties.sum()) == 18
+    assert int(state.penalties.sum()) == 26
     if int(state.moon_shooter) < 0:
         assert np.isclose(float(rewards.sum()), 0.0, rtol=0.0, atol=1e-6)
     else:
@@ -171,8 +176,8 @@ def test_vmap_runs_independent_games():
 
 
 def test_shooting_the_moon_is_a_solo_win():
-    scores, shooter, winners, rewards = settle_deal(jnp.asarray([18, 0, 0, 0]))
-    np.testing.assert_array_equal(np.asarray(scores), np.asarray([0, 18, 18, 18]))
+    scores, shooter, winners, rewards = settle_deal(jnp.asarray([26, 0, 0, 0]))
+    np.testing.assert_array_equal(np.asarray(scores), np.asarray([0, 26, 26, 26]))
     assert int(shooter) == 0
     np.testing.assert_array_equal(
         np.asarray(winners), np.asarray([True, False, False, False])

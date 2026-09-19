@@ -51,7 +51,7 @@ run:
 python -m pytest
 python -m compileall -q heart
 python examples/random_game.py
-python examples/render_replay.py --output heart-replay.html
+python examples/render_classic.py --gif heart-preview.gif --html heart-replay.html
 ```
 
 For hot-path performance claims, report synchronized before/after results,
@@ -65,8 +65,7 @@ Update public API, mode, schema, replay, configuration, and default changes in
 the same pull request. Add a changelog entry for user-visible behavior.
 
 A pull request should explain motivation, compatibility impact, validation,
-and performance impact. Link relevant issues and disclose AI-assisted work when
-its review context would be useful. Security findings follow
+and performance impact. Link relevant issues. Security findings follow
 [SECURITY.md](SECURITY.md), not a public issue.
 
 Unless explicitly stated otherwise, intentionally submitted contributions are

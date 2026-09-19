@@ -10,9 +10,9 @@ MAX_QUEEN_OF_SPADES_PENALTY = (2**15 - 1) - 13
 
 @dataclass(frozen=True)
 class SingleDealRules:
-    """Rules for the initial fixed-horizon competitive mode."""
+    """Rules for one deal of classic Hearts."""
 
-    queen_of_spades_penalty: int = 5
+    queen_of_spades_penalty: int = 13
     forbid_first_trick_points: bool = True
     require_hearts_broken: bool = True
     shooting_the_moon: bool = True

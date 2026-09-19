@@ -244,7 +244,7 @@ body{{margin:0;min-width:320px;min-height:100vh;display:grid;place-items:center;
 
 
 def save_html(state: State, path: str | Path, viewer: int | None = 0) -> Path:
-    """Write a full-observability standalone snapshot and return its path."""
+    """Write a standalone snapshot and return its path."""
 
     output = Path(path).expanduser().resolve()
     output.write_text(render_html(state, viewer), encoding="utf-8")

@@ -4,7 +4,7 @@ import numpy as np
 import heart
 
 
-def test_player_renderer_reveals_all_cards_and_identifies_viewer():
+def test_player_renderer_hides_opponent_cards_and_identifies_viewer():
     env = heart.DealEnv()
     state, _ = env.reset(jax.random.key(0))
     rendered = heart.render_ansi(state, viewer=0)
@@ -12,6 +12,12 @@ def test_player_renderer_reveals_all_cards_and_identifies_viewer():
     assert "hidden cards" not in rendered
     for player in range(heart.NUM_PLAYERS):
         assert f"P{player}" in rendered
+
+
+def test_ansi_defaults_to_player_zero_view():
+    state, _ = heart.DealEnv().reset(jax.random.key(1))
+    assert heart.render_ansi(state) == heart.render_ansi(state, viewer=0)
+    assert heart.render_ansi(state) != heart.render_ansi(state, viewer=None)
 
 
 def _advance_state(count: int):

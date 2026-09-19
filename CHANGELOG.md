@@ -1,147 +1,53 @@
 # Changelog
 
-All notable user-facing changes to HEART are recorded here. The project follows
-[Semantic Versioning](https://semver.org/) for package releases; environment IDs
-separately version game semantics.
+All notable user-facing changes to HEART are recorded here. Package versions
+follow Semantic Versioning, while environment IDs version game semantics.
 
-## [Unreleased]
+## [0.1.0] - 2026-09-20
 
-### Added
+### Environment
 
-- `heart.contest`: a leaderboard submission contract. An entry is a policy
-  exported to a portable computation graph, so the host runs it inside XLA
-  without importing submitter code and a host callback cannot be exported at
-  all. The contract is the environment's own single-agent interface — an entry
-  takes a `ClassicSingleAgentObservation` and returns pass and play logits — so
-  there is one convention rather than a second one invented for the leaderboard,
-  and a packaged policy is itself a valid entry. Entries are checked against
-  that signature, a size limit, and a per-decision flop budget measured from the
-  compiled graph. See [the submission rules](docs/leaderboard.md).
-- `heart.contest.run_league`: entries meet in sampled four-seat line-ups with
-  rotating seats over shared deals, and are ranked on penalty points per deal —
-  the game's own score rather than this environment's normalisation of it — with
-  an Elo fitted from the pairings each table implies. Both carry their
-  error, and entries whose intervals overlap share a rank.
-- `submissions/`: entries arrive as a pull request adding one directory with the
-  exported graph and a short manifest. `submissions/validate.py` runs the same
-  check CI runs, so a malformed entry is refused before review. A team's
-  directory is its handle, so submitting again replaces the entry rather than
-  adding a row and the standings cannot be occupied by volume.
-- `heart.contest.baseline_blob`: a complete valid entry that plays the cheapest
-  legal card — the shortest example of the contract, and something to check an
-  entry against before sending it. It is not seated in the standings: a policy
-  that loses that reliably hands its points to the rest of the table.
+- JAX-native `classic-v0` matches to 100 points with standard 13-point Q♠,
+  cumulative scoring, shooting the moon, shared-lowest winners, and the
+  left/right/across/hold passing cycle.
+- Fixed-shape immutable state, private player observations, legal-action masks,
+  explicit PRNG keys, and `jit`/`vmap` compatible transitions.
+- A 286-action pass interface and stable 13-slot play interface for single-agent
+  learning against configurable rule-based opponents.
+- Deal-boundary zero-sum rewards normalized by the 100-point match target.
+- A direct `DealEnv` handle for testing and benchmarking the 52-play deal core,
+  using the same standard deal rules as `classic-v0`.
+- Safe public transitions plus `step_unchecked` for actions already selected from
+  the legal mask.
 
-- `heart.play`: a person takes one `classic-v0` seat against rule tiers or
-  plugin-supplied learned policies, over a local single-match HTTP server
-  with a browser page, mask-checked actions, and JIT-compiled turns.
+### Policies and evaluation
 
-### Changed
+- Easy, medium, and hard JIT-compatible policies for passing and card play.
+- Moon-shot defense in the medium and hard play policies.
+- Batched rollout benchmarks with synchronized safe and trusted execution modes.
 
-- `classic-v0` deal rewards are divided by the match target rather than by a
-  deal's own 26 points. The ID is unchanged: nothing has been released against
-  the old semantics, which is the case [the release
-  policy](docs/release.md#environment-ids) now names explicitly. A reward and a cumulative score are now quantities in
-  the same unit, and a match's deal rewards sum to its final margin as a
-  fraction of the target. The reward is still exactly zero-sum, and a moon shot
-  still needs no special case.
-- `medium` and `hard` rule policies defend a shot at the moon. They used to do
-  the opposite: discarding prefers hearts and the queen, which is right while
-  points are being spread around and exactly backwards against a shooter, so
-  every tier fed one. A tier now notices when a single player holds every point
-  dealt so far, keeps the cards that would finish the shot, and takes a trick
-  from the shooter where it can. `easy` stays naive on purpose. Against a
-  policy trained to shoot, an attempt succeeds 81% of the time against `easy`,
-  65% against `medium` and 41% against `hard`; the alert threshold is lower
-  before the queen appears, since until then every point taken is a heart.
-- `heart.play` shows the running match score, the deal number and the points
-  left to the hundred. They had been in the payload since the server was
-  written and nothing on the page read them, so a person could play a whole
-  match without being told who was winning it.
+### Rendering and play
 
-### Removed
+- ANSI, HTML, and GIF rendering from either a player seat or an omniscient view.
+- Portable HTML match replays with timeline and speed controls.
+- A browser-based human-play server with running scores, deal progress, paced
+  opponent turns, and rule or plugin-supplied seat policies.
+- Checked-in GIF and HTML previews of a complete deal transition.
 
-- The `simplest-v0` environment ID, its single-learner adapter
-  (`SingleAgentEnv`), its benchmark, and the examples and rendering snippets
-  that drove it. One deal of Hearts was published as a second environment with
-  its own normative rule document, and nothing was ever built on it: the match
-  environment reaches the same deal core directly, so the ID only bought a
-  second contract to keep true. `heart.make()` now returns `classic-v0`, which
-  is the only mode.
-- `heart.DealEnv` replaces it where the core itself is the subject — the deal
-  transition, its masks and its rewards, tested and benchmarked on its own
-  rather than through a published environment. `docs/rules.md` remains the
-  normative contract for those semantics, since `classic-v0` runs on them.
+### Leaderboard
 
-### Fixed
+- Portable `jax.export` policy submissions using the environment single-agent
+  observation and its pass and play action spaces.
+- Submission validation for signatures, finite outputs, platform support, file
+  size, and per-decision compute limits.
+- Complete-match league evaluation with shared deals, rotating seats, penalty
+  points per deal, match win and last-place rates, Elo, and uncertainty.
+- Pull-request submission layout, replacement rules, validation script, and CI
+  checks.
 
-- `classic-v0` single-agent: `play_hand_cards` described the previous deal
-  while a deal was still being passed. `reset` lays out both hands whatever
-  phase a deal opens in, but the refresh that ran on later deals only laid out
-  the play hand when a deal opened straight into play, so from the second deal
-  on a passing deal carried the layout before it. No action changed — the play
-  head is ignored throughout the passing phase and the passing head does not
-  read that field — but the observation now says what it claims to.
+### Project
 
-### Changed
-
-- Human play deals the table one action at a time through `/advance`, so
-  opponents play in turn at a speed the page controls, the completed trick is
-  held before it clears, and the current leader is named.
-
-- Renderers now draw a seat's point of view: an integer `viewer` shows only that
-  hand face up, hides the other three behind card backs at their true counts,
-  and withholds other seats' `classic-v0` pass selections. `viewer=None` keeps
-  the omniscient view. The checked-in preview assets were regenerated.
-
-### Fixed
-
-- Place GIF seat badges from the extent of the cards they label, so a full
-  thirteen-card hand is no longer covered and side badges hold still as
-  cards are played.
-- Correct the stale un-normalized reward expectation in the `simplest-v0`
-  single-learner test left behind by the terminal-reward normalization.
-
-## [0.1.0] - 2026-09-15
-
-### Added
-
-- A checked-in 57-frame classic deal-transition GIF and interactive HTML replay
-  covering left passing, all 52 card plays, scoring, and the next-deal boundary.
-- JAX-native `classic-v0` complete matches to 100 points with 13-point Q♠,
-  cumulative scoring, intentional shared-lowest winners, moon scoring, and the
-  left/right/across/hold passing cycle over 286 three-card combinations.
-- A classic single-learner adapter with 14 decisions on passing deals and 13 on
-  hold deals, sparse normalized deal rewards, discount metadata, compressed
-  core-event traces, and deterministic `replay_events` expansion.
-- Full-observability classic ANSI, HTML, and GIF rendering with cumulative
-  scoreboards, pass flow, sticky deal-boundary summaries, and match winners.
-- JAX-native four-player `simplest-v0` environment with a fixed 52-action deal.
-- Follow-suit, 2♣ opening, first-trick point, and hearts-broken action masks.
-- Five-point Q♠, terminal zero-sum rewards, and solo-win moon-shot scoring.
-- A fixed 13-action, 13-decision single-learner adapter against configurable
-  easy, medium, and hard rule opponents.
-- Batched `jit`/`vmap` rollout support and a throughput harness.
-- Easy, medium, and hard JIT-compatible rule-policy baselines.
-- Full-observability ANSI and HTML snapshots with live penalties, final scores,
-  terminal rewards, and complete four-card trick boundaries.
-- Portable interactive HTML match replays with timeline and speed controls.
-- Optional full-observability Pillow renderer for compact animated GIF previews.
-- Strict observer, action, and configurable-penalty validation at public API
-  boundaries.
-- Opt-in `step_unchecked` for trusted mask-selected compiled rollouts.
-- Separate engine/policy and safe/trusted benchmark modes with synchronized
-  minimal outputs.
-- Adversarial rule, API-boundary, rendering, and benchmark regression tests.
-- SHA-pinned CI actions, Ruff enforcement, and installed-wheel full-deal and
-  HTML replay smoke tests.
-- Public contracts, contribution policies, citation metadata, and CI workflow.
-
-### Fixed
-
-- Keep terminal relative rewards mathematically zero-sum across both modes.
-- Fail-closed handling for non-scalar actions at the `simplest-v0` boundary.
-- Preservation of deal-completion diagnostics across classic opponent autoplay.
-- CI development dependencies, memory-safe test sharding, and installed-wheel
-  smoke coverage for both classic core and single-learner interfaces.
-- Consistent NumPy integer player IDs and explicit empty opponent validation.
+- Python 3.10–3.12 support, wheel and source-distribution builds, installed-wheel
+  smoke tests, Ruff checks, and CPU test coverage in CI.
+- Public documentation for rules, observations, rendering, human play,
+  reproducibility, releases, leaderboard scoring, and policy submission.

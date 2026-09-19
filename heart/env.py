@@ -16,14 +16,7 @@ AVAILABLE_MODES = (CLASSIC_V0,)
 
 @dataclass(frozen=True)
 class DealEnv:
-    """One deal of Hearts: 52 plays, no passing, no running score.
-
-    This is the core `classic-v0` is built on, not an environment of its own.
-    It used to be published as `simplest-v0`, with its own single-learner
-    adapter, rule document, examples and benchmarks; nothing was ever built on
-    it, and a second contract is a second thing to keep true. What remains is
-    the handle that makes the core testable and measurable on its own.
-    """
+    """The 52-play deal core used by `classic-v0`."""
 
     rules: SingleDealRules = SINGLE
 

@@ -13,7 +13,7 @@ import jax.numpy as jnp
 from jax import Array
 
 from heart.cards import NUM_CARDS, NUM_PLAYERS, TWO_OF_CLUBS
-from heart.config import SingleDealRules
+from heart.config import SINGLE, SingleDealRules
 from heart.rules import legal_action_mask, observe, relative_rewards
 from heart.rules import reset as reset_deal
 from heart.rules import step as step_deal
@@ -53,10 +53,7 @@ class ClassicRules:
 
     @property
     def deal_rules(self) -> SingleDealRules:
-        return SingleDealRules(
-            queen_of_spades_penalty=13,
-            shooting_the_moon=True,
-        )
+        return SINGLE
 
 
 CLASSIC = ClassicRules()

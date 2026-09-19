@@ -201,7 +201,7 @@ def save_classic_replay_html(
     return output
 
 
-def render_classic_ansi(state: ClassicState, viewer: int | None = None) -> str:
+def render_classic_ansi(state: ClassicState, viewer: int | None = 0) -> str:
     """Render a classic match snapshot as readable text from a seat's view.
 
     ``viewer`` sees only its own hand and pass selection; ``None`` reveals all.

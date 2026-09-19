@@ -46,8 +46,6 @@ class RulePassPolicy:
         suits = CARD_SUITS[hand_cards]
         combos = PASS_COMBINATIONS.astype(jnp.int32)
 
-        # easy preserves the former medium baseline: unload intrinsically
-        # dangerous cards without reasoning about the remaining suit shape.
         danger = ranks
         danger += jnp.where(hand_cards == QUEEN_OF_SPADES, 30.0, 0.0)
         danger += jnp.where((suits == SPADES) & (ranks >= 10), 8.0, 0.0)
@@ -60,8 +58,7 @@ class RulePassPolicy:
             queen_adjustment = jnp.where(queen_is_exposed, 50.0, -55.0)
             danger += jnp.where(hand_cards == QUEEN_OF_SPADES, queen_adjustment, 0.0)
 
-            # Passing A/K spades is most valuable to the right or across.  Low
-            # spades are retained as cover for a held Q/A/K.
+            # Retain low spades as cover for a held Q, K, or A.
             direction_weight = jnp.asarray((1.0, 1.15, 1.1, 0.0))[
                 observation.pass_direction
             ]
@@ -88,8 +85,7 @@ class RulePassPolicy:
             creates_void = (suit_counts[None, :] > 0) & (
                 selected_counts == suit_counts[None, :]
             )
-            # Diamonds are the preferred safe void.  Clubs receive a smaller
-            # bonus only when passing them cannot give away the forced 2C lead.
+            # Avoid passing 2C when creating a club void.
             logits += 13.0 * creates_void[:, DIAMONDS]
             logits += (
                 8.0 * creates_void[:, CLUBS] * (~observation.game.hand[TWO_OF_CLUBS])

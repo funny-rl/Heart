@@ -10,16 +10,8 @@ restore its documented contract may retain the ID. Intentional changes to
 legality, observations, scoring, rewards, termination, or action encoding need
 a new environment version.
 
-An environment ID that has never shipped in a release keeps its name while it
-is being settled. The rule protects code that is already running against the
-old semantics, and until a tag, a GitHub Release and a published distribution
-exist there is none: minting `classic-v1` would leave behind a `classic-v0`
-nobody ever ran. `classic-v0` changed under this clause before its first
-release -- deal rewards moved from the deal's own 26 points to the match
-target -- and the change is recorded in [CHANGELOG.md](../CHANGELOG.md).
-
-Once a release names an ID, that ID is frozen and the paragraph above applies
-without exception.
+Before its first release, an environment ID may be corrected without a version
+bump. Once a release names an ID, its documented semantics are frozen.
 
 Pre-1.0 Python APIs may change, but incompatible changes must be documented in
 [CHANGELOG.md](../CHANGELOG.md) and tested. Silent semantic drift is not

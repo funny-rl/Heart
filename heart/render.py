@@ -44,7 +44,7 @@ def _cards_text(cards: np.ndarray) -> str:
     return " ".join(CARD_NAMES[card] for card in visible) if visible else "—"
 
 
-def render_ansi(state: State, viewer: int | None = None) -> str:
+def render_ansi(state: State, viewer: int | None = 0) -> str:
     """Render one unbatched state as readable text from a seat's point of view.
 
     ``viewer`` names the local player, whose hand is the only one printed;

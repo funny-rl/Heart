@@ -126,6 +126,15 @@ def test_all_classic_renderers_reject_invalid_viewer(classic_state, viewer):
         heart.render_classic_gif_frame(classic_state, viewer=viewer)
 
 
+def test_classic_ansi_defaults_to_player_zero_view(classic_state):
+    assert heart.render_classic_ansi(classic_state) == heart.render_classic_ansi(
+        classic_state, viewer=0
+    )
+    assert heart.render_classic_ansi(classic_state) != heart.render_classic_ansi(
+        classic_state, viewer=None
+    )
+
+
 def test_classic_ansi_pass_and_deal_summary_semantics(classic_state):
     passing = heart.render_classic_ansi(classic_state, viewer=2)
     assert "왼쪽 패싱" in passing

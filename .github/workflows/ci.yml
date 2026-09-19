@@ -87,7 +87,7 @@ jobs:
               assert not bool(info.invalid_action)
               states.append(state)
           assert len(states) == 53
-          assert int(state.penalties.sum()) == 18
+          assert int(state.penalties.sum()) == 26
 
           classic_env = heart.make("classic-v0")
           classic_state, classic_observation = classic_env.reset(jax.random.key(2))
