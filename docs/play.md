@@ -36,14 +36,19 @@ outside this distribution and bring their own dependencies.
 | `/` | GET | — | The play page |
 | `/state` | GET | — | Snapshot |
 | `/action` | POST | `{"slots": [a, b, c]}` or `{"card": id}` | Snapshot |
-| `/advance` | POST | `{}` | Snapshot after one policy action |
+| `/advance` | POST | `{"steps": 1..64}` | `{"frames": [snapshot, ...]}` |
 | `/new` | POST | `{}` | Snapshot of a fresh match |
 
 A snapshot carries `view` (a standalone HTML rendering from the person's seat),
 `phase`, `your_turn`, `finished`, `seat`, `active`, `leader`, `pending`,
-`settling`, `scores`, `deal`, `log`, the `hand` as
+`settling`, `scores`, `target`, `deal`, `log`, the `hand` as
 `{slot, card, name, rank, suit, red}` entries — enough for the page to draw a
 card face — and `legal` card ids during `PLAY`. Finished matches add `winners`.
+
+`scores` and `deal` are drawn as a scoreboard under the table, against
+`target`, so a person can see who is winning the match and how close it is to
+ending. The page reads the target from the snapshot rather than assuming a
+hundred.
 
 Rejected actions answer `400` and leave the match untouched: an illegal card, a
 malformed pass selection, and acting out of turn are all refused by the same
@@ -51,6 +56,11 @@ masks the compiled path uses. The server keeps one match and serialises
 requests, so it is a single-player local tool, not a multi-seat lobby.
 
 ## Pacing
+
+`/advance` returns one snapshot per action it played, so the page can animate
+the table at its own pace from a single request rather than polling once per
+card. `steps` defaults to 1 and is capped at 64; the walk stops early when the
+person is on turn again.
 
 `/action` applies the person's move and nothing else. Each `/advance` then plays
 exactly one seat, so the caller decides how fast the table moves and every card

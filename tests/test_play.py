@@ -12,7 +12,13 @@ import pytest
 
 import heart
 from heart.classic import PASS, PASS_COMBINATIONS
-from heart.play import HumanGame, make_rule_seat_policy, pass_action_for, serve
+from heart.play import (
+    PAGE,
+    HumanGame,
+    make_rule_seat_policy,
+    pass_action_for,
+    serve,
+)
 
 
 def _opponents(difficulty: str = "medium", human_seat: int = 0):
@@ -256,3 +262,24 @@ def test_server_serves_the_page_and_applies_actions():
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_the_page_shows_the_running_match_score():
+    """The score the match is decided on was in the payload and never drawn.
+
+    `scores` and `deal` had been travelling to the browser since the server was
+    written, and nothing on the page read them: a person could play a whole
+    match without being told who was winning it.
+    """
+
+    game = HumanGame(seats=_opponents("easy"), human_seat=0, seed=5)
+    payload = game.snapshot()
+    assert len(payload["scores"]) == heart.NUM_PLAYERS
+    assert payload["target"] == 100
+
+    page = PAGE
+    assert 'id="board"' in page
+    assert "function drawBoard(" in page
+    assert "drawBoard(s);" in page
+    # Drawn from the payload, not from a constant baked into the page.
+    assert "s.target || 100" in page

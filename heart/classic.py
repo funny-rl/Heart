@@ -132,8 +132,15 @@ def _empty_classic_info(
     )
 
 
-def _relative_rewards(scores: Array) -> Array:
-    return relative_rewards(scores, normalizer=26.0)
+def _relative_rewards(scores: Array, rules: ClassicRules) -> Array:
+    """A deal's zero-sum margin, measured against the match it belongs to.
+
+    The divisor is the match target rather than the deal's own 26 points, so a
+    reward and a cumulative score are quantities in the same unit: summing a
+    match's deal rewards gives its final margin as a fraction of the target.
+    """
+
+    return relative_rewards(scores, normalizer=float(rules.target_score))
 
 
 def _pass_direction(deal_index: Array) -> Array:
@@ -340,7 +347,7 @@ def _apply_play(
 
     def finish_deal(_: None) -> tuple[ClassicState, Array, ClassicInfo]:
         deal_scores = game.scores.astype(jnp.int16)
-        rewards = _relative_rewards(deal_scores)
+        rewards = _relative_rewards(deal_scores, rules)
         match_scores = state.match_scores + deal_scores
         match_completed = jnp.any(match_scores >= rules.target_score)
         winner_mask = (match_scores == jnp.min(match_scores)) & match_completed

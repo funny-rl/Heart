@@ -70,19 +70,21 @@ so there is one contract now rather than two.
 | Shooting the moon | Shooter scores 0 for the deal; every opponent scores 26                                     |
 | Match end         | Checked after a deal when any cumulative score reaches 100                                  |
 | Winners           | Every player tied for the lowest cumulative score; no tie-break deal                        |
-| Reward timing     | Zero within a deal; a normalized zero-sum vector at each deal boundary                      |
+| Reward timing     | Zero within a deal; a zero-sum vector at each deal boundary, in match-target units          |
 
 The lowest effective score wins. At a deal boundary, player `i` receives
 
 ```text
-reward_i = (mean(effective_scores_of_other_players) - effective_score_i) / 26
+reward_i = (mean(effective_scores_of_other_players) - effective_score_i) / 100
 ```
 
-For an ordinary deal the four rewards sum to zero mathematically (subject to
-ordinary float32 rounding); raw penalties do not. The denominator is the
-configured total point value (`13 + queen_of_spades_penalty`). A moon shot uses
-a dedicated winner-takes-all signal instead: the shooter receives `0` and each
-opponent receives `-1`.
+The four rewards sum to zero mathematically (subject to ordinary float32
+rounding); raw penalties do not. The divisor is the match target, not the
+deal's own 26 points, which puts a reward and a cumulative score in the same
+unit: a match's deal rewards sum to its final margin as a fraction of the
+target. A moon shot needs no special case — the shooter's deal score is 0 and
+everyone else's is 26, and the same formula turns that into `+0.26` against
+`-0.0867`.
 
 See the normative [`classic-v0` contract](docs/classic.md) for phase masks,
 reward semantics, the single-learner adapter, and deal-boundary state, and the
@@ -272,7 +274,7 @@ backend, hardware, batch size, warm-up, and measured run count.
 
 | Surface               | Entry point                                                            | Boundary                                                                |
 | --------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Environment           | `heart.make`, `HeartEnv`, `ClassicEnv`                                 | Versioned single-deal and complete-match handles over immutable state   |
+| Environment           | `heart.make`, `ClassicEnv`, `heart.DealEnv`                            | The versioned match, and a direct handle on the deal core it runs on    |
 | State and observation | [`docs/environment.md`](docs/environment.md)                           | Omniscient environment state versus player-private policy input         |
 | Rules and reward      | [`docs/rules.md`](docs/rules.md), [`docs/classic.md`](docs/classic.md) | Versioned legality, scoring, termination, passing, and reward semantics |
 | Reference policies    | `heart.make_rule_policy`                                               | Mask-respecting, seeded baselines; not claims of optimal play           |
@@ -291,9 +293,18 @@ action = policy(observation, key)
 ```
 
 - `easy` ducks avoidable tricks and unloads dangerous point cards when void;
-- `medium` additionally pressures opponents with safe early spade leads;
-- `hard` also unloads high cards on the point-free opening trick and cashes a
-  high forced winner when acting last on a clean trick.
+- `medium` additionally pressures opponents with safe early spade leads, and
+  defends a shot at the moon half the time it could;
+- `hard` always defends one, and also unloads high cards on the point-free
+  opening trick and cashes a high forced winner when acting last on a clean
+  trick.
+
+Defending means noticing that one player holds every point dealt so far, then
+keeping the hearts and the queen it would need rather than discarding them, and
+taking a trick away from it where that is possible. Seeing a shot and being
+able to break it are different things, so even `hard` lets roughly two in five
+through: measured against a policy trained to shoot, an attempt succeeds 81% of
+the time against `easy`, 65% against `medium` and 41% against `hard`.
 
 Classic passing follows the same tier order: `easy` unloads intrinsically
 dangerous cards, `medium` manages Q♠ exposure and retains low-spade cover, and

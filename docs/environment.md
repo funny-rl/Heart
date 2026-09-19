@@ -118,7 +118,7 @@ selected player's passed and received cards.
 zero inside a deal and are emitted at its boundary:
 
 ```text
-reward_i = (mean(other effective deal scores) - own effective deal score) / 26
+reward_i = (mean(other effective deal scores) - own effective deal score) / 100
 ```
 
 On a non-terminal boundary the next deal is already present in `state.game`.

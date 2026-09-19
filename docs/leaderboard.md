@@ -37,6 +37,12 @@ Updated 2026-09-18 · field average **6.74** points per deal
 </div>
 <!-- standings:end -->
 
+> **Being re-measured.** The rule tiers learned to defend a shot at the moon
+> after this table was run, so the three `rule-*` rows describe opponents that
+> no longer exist and every figure around them moved with the field. Treat the
+> numbers below as the shape of the thing rather than as current results until
+> the next run replaces them.
+
 > **Read it honestly.** `(TA)` marks a policy this project trained; it is here
 > as a yardstick, not as a contender. The figures move when the field moves — a
 > weak seat absorbs points and lifts everyone else at the table — so compare
@@ -244,7 +250,7 @@ than on their luck.
 
 The ranking figure is **penalty points per deal, lower being better**. That is
 the game's own score. A reward is this environment's normalisation of those
-points — zero-sum, divided by the deal's total — and ranking on it would make
+points — zero-sum, divided by the match target — and ranking on it would make
 the standings depend on a modelling choice rather than on Hearts. Two entries
 whose intervals overlap **share a rank** rather than being ordered by noise.
 

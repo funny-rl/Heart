@@ -40,6 +40,7 @@ from heart.classic import (
     PASS_COMBINATIONS,
     TERMINAL,
     ClassicEnv,
+    ClassicRules,
     ClassicState,
     observe_classic,
 )
@@ -262,6 +263,7 @@ class HumanGame:
                 ]
             ),
             "scores": [int(value) for value in scores],
+            "target": int(ClassicRules().target_score),
             "deal": int(self.state.deal_index),
             "log": self.log[-12:],
             "hand": [],
@@ -316,6 +318,13 @@ button.go{padding:9px 16px;border-radius:9px;border:1px solid #86efac;background
 button.go:disabled{opacity:.4;cursor:not-allowed}
 .msg{color:#9aa3b2;margin:6px 0 0}
 .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between}
+.board{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:2px 0 6px}
+.board b{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:62px;padding:4px 8px;border-radius:9px;background:#1e293b;border:1px solid #334155;font-weight:600}
+.board b.me{border-color:#38bdf8;background:#0c4a6e}
+.board b.lead{border-color:#22c55e}
+.board b.edge{border-color:#f59e0b}
+.board i{font-style:normal;font-size:11px;opacity:.7;font-weight:500}
+.board u{text-decoration:none;font-size:17px;font-variant-numeric:tabular-nums}
 .turn{font:600 13px ui-monospace,monospace;color:#cbd5e1}
 .turn b{color:#fcd34d}
 select{height:34px;padding:0 8px;border-radius:8px;border:1px solid #39404e;
@@ -337,6 +346,7 @@ select{height:34px;padding:0 8px;border-radius:8px;border:1px solid #39404e;
       </select>
     </label>
   </div>
+  <div id="board" class="board"></div>
   <div id="prompt" class="msg">불러오는 중…</div>
   <div id="cards" class="cards"></div>
   <button id="submit" class="go" hidden>3장 넘기기</button>
@@ -371,6 +381,33 @@ async function post(path, body) {
   if (!response.ok) { prompt.textContent = await response.text(); return null; }
   return response.json();
 }
+function drawBoard(s) {
+  const board = document.getElementById('board');
+  const scores = s.scores || [];
+  if (!scores.length) { board.replaceChildren(); return; }
+  const target = s.target || 100;
+  const best = Math.min.apply(null, scores);
+  const worst = Math.max.apply(null, scores);
+  board.replaceChildren();
+  scores.forEach((value, seat) => {
+    const cell = document.createElement('b');
+    cell.className = (seat === s.seat ? 'me' : '')
+      + (value === best ? ' lead' : '')
+      + (value !== worst || worst < target - 26 ? '' : ' edge');
+    const who = document.createElement('i');
+    who.textContent = seat === s.seat ? '나 (P' + seat + ')' : 'P' + seat;
+    const num = document.createElement('u');
+    num.textContent = value;
+    cell.append(who, num);
+    board.append(cell);
+  });
+  const note = document.createElement('b');
+  note.append(Object.assign(document.createElement('i'), {textContent: '딜 ' + ((s.deal || 0) + 1)}));
+  note.append(Object.assign(document.createElement('u'),
+    {textContent: Math.max(target - worst, 0) + '점 남음'}));
+  board.append(note);
+}
+
 function paint(markup) {
   // Swapping only the body keeps the parsed stylesheet, which is most of the
   // document; re-feeding srcdoc every frame makes the table stutter.
@@ -407,6 +444,7 @@ function draw(s) {
   turnBox.innerHTML = s.finished ? ''
     : '선턴 <b>P' + s.leader + '</b> · 차례 P' + s.active
       + (s.settling ? ' · 트릭 정리 중' : '');
+  drawBoard(s);
   logBox.textContent = (s.log || []).join('\\n');
   fit();
   cards.replaceChildren();

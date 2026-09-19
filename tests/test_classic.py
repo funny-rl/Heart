@@ -9,6 +9,7 @@ import pytest
 
 import heart
 from heart.classic import (
+    MAX_CLASSIC_CORE_STEPS,
     NUM_PASS_ACTIONS,
     PASS,
     PASS_ACROSS,
@@ -17,6 +18,7 @@ from heart.classic import (
     PASS_LEFT,
     PASS_RIGHT,
     PLAY,
+    ClassicRules,
     _new_deal_state,
     _relative_rewards,
 )
@@ -70,11 +72,41 @@ def test_pass_action_table_is_exactly_thirteen_choose_three():
 
 
 def test_classic_keeps_normalized_relative_reward_for_moon_scores():
-    rewards = _relative_rewards(jnp.asarray([0, 26, 26, 26], dtype=jnp.int16))
+    """A moon takes the ordinary path; `classic-v0` has no special-case reward.
+
+    The divisor is the match target, so the shooter's 26-point swing reads as
+    0.26 of a match rather than as a whole one.
+    """
+
+    rules = ClassicRules()
+    rewards = _relative_rewards(jnp.asarray([0, 26, 26, 26], dtype=jnp.int16), rules)
     np.testing.assert_allclose(
-        np.asarray(rewards), np.asarray([1.0, -1.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0])
+        np.asarray(rewards), np.asarray([0.26, -0.26 / 3.0, -0.26 / 3.0, -0.26 / 3.0])
     )
     assert np.isclose(float(rewards.sum()), 0.0, atol=1e-6)
+
+
+def test_a_match_of_deal_rewards_sums_to_its_final_margin():
+    """What the match-target divisor buys: rewards and scores in one unit."""
+
+    env = heart.make("classic-v0")
+    state, observation = env.reset(jax.random.key(3))
+    step = jax.jit(env.step)
+    totals = np.zeros(4, dtype=np.float64)
+    for _ in range(MAX_CLASSIC_CORE_STEPS):
+        if bool(state.terminated):
+            break
+        mask = (
+            observation.pass_action_mask
+            if int(state.phase) == PASS
+            else observation.play_action_mask
+        )
+        state, observation, rewards, _, _ = step(state, jnp.argmax(mask))
+        totals += np.asarray(rewards, dtype=np.float64)
+
+    final = np.asarray(state.match_scores, dtype=np.float64)
+    margin = ((final.sum() - final) / 3.0 - final) / ClassicRules().target_score
+    np.testing.assert_allclose(totals, margin, atol=1e-5)
 
 
 @pytest.mark.parametrize(
@@ -151,7 +183,8 @@ def test_first_deal_reward_and_boundary_state_are_consistent():
     state, _ = env.reset(jax.random.key(121))
     state, rewards, info = _finish_first_deal(env, state)
     deal_scores = np.asarray(info.deal_scores)
-    expected_rewards = ((deal_scores.sum() - deal_scores) / 3.0 - deal_scores) / 26.0
+    target = ClassicRules().target_score
+    expected_rewards = ((deal_scores.sum() - deal_scores) / 3.0 - deal_scores) / target
 
     assert bool(info.deal_completed)
     assert not bool(info.match_completed)

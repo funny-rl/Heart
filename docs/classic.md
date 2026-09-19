@@ -55,13 +55,20 @@ Core rewards have shape `(4,)`. Every non-boundary event returns zero. When a
 deal completes, let `d_i` be player `i`'s moon-adjusted effective deal score:
 
 ```text
-reward_i = (mean(d_j for j != i) - d_i) / 26
+reward_i = (mean(d_j for j != i) - d_i) / 100
 ```
 
 This reward is zero-sum up to float32 rounding and is emitted after every deal,
 including the terminal deal. It measures the deal result; match termination and
 the cumulative winners are reported separately through `ClassicInfo` and
 `ClassicState`.
+
+The divisor is `target_score`, not the deal's own 26 points. A reward and a
+cumulative score are therefore the same kind of quantity, and a match's deal
+rewards sum to its final margin as a fraction of the target — a policy reading
+both does not have to learn the conversion between two rulers. A moon shot
+needs no special case: the shooter's `d_i` is 0 and every opponent's is 26, and
+the formula reads that as `+0.26` against `-0.0867`.
 
 For episodic training, `gamma = 1` is recommended. The environment already
 provides sparse deal-boundary rewards, and discounting by engine events or by

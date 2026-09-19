@@ -36,6 +36,29 @@ separately version game semantics.
   plugin-supplied learned policies, over a local single-match HTTP server
   with a browser page, mask-checked actions, and JIT-compiled turns.
 
+### Changed
+
+- `classic-v0` deal rewards are divided by the match target rather than by a
+  deal's own 26 points. The ID is unchanged: nothing has been released against
+  the old semantics, which is the case [the release
+  policy](docs/release.md#environment-ids) now names explicitly. A reward and a cumulative score are now quantities in
+  the same unit, and a match's deal rewards sum to its final margin as a
+  fraction of the target. The reward is still exactly zero-sum, and a moon shot
+  still needs no special case.
+- `medium` and `hard` rule policies defend a shot at the moon. They used to do
+  the opposite: discarding prefers hearts and the queen, which is right while
+  points are being spread around and exactly backwards against a shooter, so
+  every tier fed one. A tier now notices when a single player holds every point
+  dealt so far, keeps the cards that would finish the shot, and takes a trick
+  from the shooter where it can. `easy` stays naive on purpose. Against a
+  policy trained to shoot, an attempt succeeds 81% of the time against `easy`,
+  65% against `medium` and 41% against `hard`; the alert threshold is lower
+  before the queen appears, since until then every point taken is a heart.
+- `heart.play` shows the running match score, the deal number and the points
+  left to the hundred. They had been in the payload since the server was
+  written and nothing on the page read them, so a person could play a whole
+  match without being told who was winning it.
+
 ### Removed
 
 - The `simplest-v0` environment ID, its single-learner adapter

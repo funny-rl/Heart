@@ -6,7 +6,13 @@ import numpy as np
 import pytest
 
 import heart
-from heart.agents.rule_based import _hard_scores, _spade_pressure_scores
+from heart.agents.rule_based import (
+    MOON_ALERTNESS,
+    _hard_scores,
+    _spade_pressure_scores,
+)
+
+ALERTNESS = MOON_ALERTNESS["hard"]
 from heart.cards import CLUBS, DIAMONDS, SPADES, card_id
 
 
@@ -127,7 +133,9 @@ def test_hard_unloads_high_card_on_first_trick_when_not_leading():
         current_trick=[card_id(CLUBS, 3), -1, -1, -1],
     )
     key = jax.random.key(303)
-    delta = _hard_scores(observation, key) - _spade_pressure_scores(observation, key)
+    delta = _hard_scores(observation, key, ALERTNESS) - _spade_pressure_scores(
+        observation, key, ALERTNESS
+    )
     np.testing.assert_allclose(
         np.asarray(delta)[cards], 300.0 + np.asarray([0.0, 1.0, 12.0])
     )
@@ -141,7 +149,9 @@ def test_hard_cashes_highest_forced_winner_when_last_and_trick_is_clean():
         current_trick=[card_id(CLUBS, 3), card_id(CLUBS, 1), card_id(CLUBS, 2), -1],
     )
     key = jax.random.key(304)
-    delta = _hard_scores(observation, key) - _spade_pressure_scores(observation, key)
+    delta = _hard_scores(observation, key, ALERTNESS) - _spade_pressure_scores(
+        observation, key, ALERTNESS
+    )
     np.testing.assert_allclose(
         np.asarray(delta)[cards], 300.0 + np.asarray([4.0, 12.0])
     )
