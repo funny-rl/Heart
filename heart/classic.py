@@ -14,7 +14,7 @@ from jax import Array
 
 from heart.cards import NUM_CARDS, NUM_PLAYERS, TWO_OF_CLUBS
 from heart.config import SINGLE, SingleDealRules
-from heart.rules import legal_action_mask, observe, relative_rewards
+from heart.rules import legal_action_mask, observe
 from heart.rules import reset as reset_deal
 from heart.rules import step as step_deal
 from heart.types import Observation, State
@@ -129,15 +129,10 @@ def _empty_classic_info(
     )
 
 
-def _relative_rewards(scores: Array, rules: ClassicRules) -> Array:
-    """A deal's zero-sum margin, measured against the match it belongs to.
+def _deal_rewards(scores: Array) -> Array:
+    """Return the game's effective penalty scores as negative rewards."""
 
-    The divisor is the match target rather than the deal's own 26 points, so a
-    reward and a cumulative score are quantities in the same unit: summing a
-    match's deal rewards gives its final margin as a fraction of the target.
-    """
-
-    return relative_rewards(scores, normalizer=float(rules.target_score))
+    return jnp.zeros_like(scores, dtype=jnp.float32) - scores.astype(jnp.float32)
 
 
 def _pass_direction(deal_index: Array) -> Array:
@@ -215,14 +210,12 @@ def observe_classic(
         and jnp.issubdtype(raw_player.dtype, jnp.integer)
         and not jnp.issubdtype(raw_player.dtype, jnp.bool_)
     )
-    player = (
-        raw_player.astype(jnp.int32)
-        if is_scalar_integer
-        else jnp.asarray(0, dtype=jnp.int32)
-    )
-    valid_player = (
-        jnp.asarray(is_scalar_integer) & (player >= 0) & (player < NUM_PLAYERS)
-    )
+    if is_scalar_integer:
+        valid_player = (raw_player >= 0) & (raw_player < NUM_PLAYERS)
+        player = raw_player.astype(jnp.int32)
+    else:
+        valid_player = jnp.asarray(False)
+        player = jnp.asarray(0, dtype=jnp.int32)
     game_observation = observe(state.game, raw_player, rules.deal_rules)
     is_actor = valid_player & (~state.terminated) & (player == state.active_player)
     pass_mask = jnp.full((NUM_PASS_ACTIONS,), is_actor & (state.phase == PASS))
@@ -344,7 +337,7 @@ def _apply_play(
 
     def finish_deal(_: None) -> tuple[ClassicState, Array, ClassicInfo]:
         deal_scores = game.scores.astype(jnp.int16)
-        rewards = _relative_rewards(deal_scores, rules)
+        rewards = _deal_rewards(deal_scores)
         match_scores = state.match_scores + deal_scores
         match_completed = jnp.any(match_scores >= rules.target_score)
         winner_mask = (match_scores == jnp.min(match_scores)) & match_completed
@@ -419,11 +412,14 @@ def step(
         and jnp.issubdtype(raw_action.dtype, jnp.integer)
         and not jnp.issubdtype(raw_action.dtype, jnp.bool_)
     )
-    action = (
-        raw_action.astype(jnp.int32) if is_integer else jnp.asarray(0, dtype=jnp.int32)
-    )
-    pass_in_bounds = (action >= 0) & (action < NUM_PASS_ACTIONS)
-    play_in_bounds = (action >= 0) & (action < NUM_CARDS)
+    if is_integer:
+        pass_in_bounds = (raw_action >= 0) & (raw_action < NUM_PASS_ACTIONS)
+        play_in_bounds = (raw_action >= 0) & (raw_action < NUM_CARDS)
+        action = raw_action.astype(jnp.int32)
+    else:
+        pass_in_bounds = jnp.asarray(False)
+        play_in_bounds = jnp.asarray(False)
+        action = jnp.asarray(0, dtype=jnp.int32)
     safe_card = jnp.clip(action, 0, NUM_CARDS - 1)
     play_legal = legal_action_mask(state.game, rules.deal_rules)[safe_card]
     valid = (

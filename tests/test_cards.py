@@ -27,3 +27,13 @@ def test_card_index_validation():
         card_id(CLUBS, 13)
     with pytest.raises(ValueError):
         card_name(52)
+
+
+@pytest.mark.parametrize("value", [True, 0.0, "0"])
+def test_card_index_rejects_non_integer_values(value):
+    with pytest.raises(TypeError):
+        card_id(value, 0)
+    with pytest.raises(TypeError):
+        card_id(0, value)
+    with pytest.raises(TypeError):
+        card_name(value)

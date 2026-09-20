@@ -14,7 +14,7 @@ follow Semantic Versioning, while environment IDs version game semantics.
   explicit PRNG keys, and `jit`/`vmap` compatible transitions.
 - A 286-action pass interface and stable 13-slot play interface for single-agent
   learning against configurable rule-based opponents.
-- Deal-boundary zero-sum rewards normalized by the 100-point match target.
+- Deal-boundary rewards equal to each player's negative effective penalty score.
 - A direct `DealEnv` handle for testing and benchmarking the 52-play deal core,
   using the same standard deal rules as `classic-v0`.
 - Safe public transitions plus `step_unchecked` for actions already selected from

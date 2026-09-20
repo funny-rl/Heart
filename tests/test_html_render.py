@@ -51,11 +51,12 @@ def test_save_html_writes_standalone_page(tmp_path):
 
 def test_replay_html_contains_frames_and_playback_controls(tmp_path):
     env = heart.DealEnv()
+    step = jax.jit(env.step)
     state, observation = env.reset(jax.random.key(207))
     states = [state]
     for _ in range(3):
         action = np.flatnonzero(np.asarray(observation.action_mask))[0]
-        state, observation, *_ = env.step(state, action)
+        state, observation, *_ = step(state, action)
         states.append(state)
 
     output = heart.save_replay_html(states, tmp_path / "replay.html", viewer=2, fps=3.0)
@@ -78,11 +79,12 @@ def test_replay_rejects_empty_or_nonpositive_fps():
 
 def _advance_states(count: int):
     env = heart.DealEnv()
+    step = jax.jit(env.step)
     state, observation = env.reset(jax.random.key(401))
     states = [state]
     for _ in range(count):
         action = int(np.flatnonzero(np.asarray(observation.action_mask))[0])
-        state, observation, *_ = env.step(state, action)
+        state, observation, *_ = step(state, action)
         states.append(state)
     return states
 

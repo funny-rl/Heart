@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from numbers import Integral
+
 import numpy as np
 from jax import device_get
 
@@ -9,11 +11,22 @@ from heart.cards import CARD_NAMES, NUM_PLAYERS
 from heart.types import State
 
 
+def _validate_viewer(viewer: int | None) -> int | None:
+    if viewer is None:
+        return None
+    if isinstance(viewer, bool) or not isinstance(viewer, Integral):
+        raise TypeError("viewer must be an integer or None")
+    viewer = int(viewer)
+    if not 0 <= viewer < NUM_PLAYERS:
+        raise ValueError(f"viewer must be in [0, {NUM_PLAYERS}) or None")
+    return viewer
+
+
 def _terminal_rewards(state: State) -> np.ndarray:
-    """Reconstruct the terminal relative rewards from effective scores."""
+    """Reconstruct terminal rewards from effective scores."""
 
     scores = np.asarray(state.scores, dtype=np.float32)
-    return (scores.sum(dtype=np.float32) - scores) / (NUM_PLAYERS - 1) - scores
+    return np.zeros_like(scores) - scores
 
 
 def _visible_trick(state: State) -> tuple[np.ndarray, int, bool]:
@@ -51,8 +64,7 @@ def render_ansi(state: State, viewer: int | None = 0) -> str:
     the others show their card count. ``None`` reveals every hand.
     """
 
-    if viewer is not None and not 0 <= viewer < NUM_PLAYERS:
-        raise ValueError(f"viewer must be in [0, {NUM_PLAYERS}) or None")
+    viewer = _validate_viewer(viewer)
     state = device_get(state)
 
     hands = np.asarray(state.hands)

@@ -20,6 +20,7 @@ from heart.cards import CLUBS, DIAMONDS, SPADES, card_id
 def test_rule_policy_always_chooses_legal_cards(difficulty):
     env = heart.DealEnv()
     policy = heart.make_rule_policy(difficulty)
+    step = jax.jit(env.step)
     key = jax.random.key(101)
     key, reset_key = jax.random.split(key)
     state, observation = env.reset(reset_key)
@@ -28,7 +29,7 @@ def test_rule_policy_always_chooses_legal_cards(difficulty):
         key, action_key = jax.random.split(key)
         action = policy(observation, action_key)
         assert bool(observation.action_mask[action])
-        state, observation, _, terminated, info = env.step(state, action)
+        state, observation, _, terminated, info = step(state, action)
         assert not bool(info.invalid_action)
     assert bool(terminated)
 

@@ -5,7 +5,7 @@
 The published environment is the complete match:
 
 ```python
-env = heart.make("classic-v0")     # the default, and the only mode
+env = heart.make("classic-v0")  # the default, and the only mode
 state, observation = env.reset(key)
 state, observation, rewards, terminated, info = env.step(state, action)
 ```
@@ -14,7 +14,7 @@ The deal core it runs on has its own handle, for testing and measuring the
 transition on its own rather than as a second environment:
 
 ```python
-deal = heart.DealEnv()             # 52 card plays, no passing, no match score
+deal = heart.DealEnv()  # 52 card plays, no passing, no match score
 state, observation = deal.reset(key)
 ```
 
@@ -48,7 +48,7 @@ are all `13C3` unordered triples of slots in the acting player's sorted
 
 ## Single-learner adapters
 
-For one fixed deal against three built-in opponents:
+For one player against three built-in opponents in a complete classic match:
 
 ```python
 env = heart.make_single_agent(
@@ -59,25 +59,13 @@ state, observation = env.reset(key)
 state, observation, reward, terminated, info = env.step(state, slot)
 ```
 
-This adapter has a fixed 13-action interface. Slot `i` refers to the same card
-from the controlled player's initial sorted hand; played and currently illegal
-slots are masked. Opponents autoplay until the learner acts again. The external
-episode has exactly 13 decisions while the core applies all 52 card plays.
-
-For a complete classic match:
-
-```python
-env = heart.make_single_agent(
-    "classic-v0",
-    controlled_player=0,
-    pass_opponents="medium",
-    play_opponents="hard",
-)
-```
-
-A passing deal exposes one 286-way pass choice and 13 card choices, exactly 14
-learner decisions. A hold deal exposes exactly 13 card choices. Opponent events
-are automatically advanced and recorded in `ClassicSingleAgentInfo`.
+The adapter runs `classic-v0` to the 100-point match boundary. A passing deal
+exposes one 286-way pass choice and 13 card-slot choices, exactly 14 learner
+decisions. A hold deal exposes exactly 13 card-slot choices. Slot `i` refers
+to the same card throughout that deal; played and currently illegal slots are
+masked. Opponents autoplay until the learner acts again, and their events are
+recorded in `ClassicSingleAgentInfo`. Use `pass_opponents` and
+`play_opponents` when the two phases need different rule-policy tiers.
 
 ## Deal state and observation
 
@@ -118,7 +106,7 @@ selected player's passed and received cards.
 zero inside a deal and are emitted at its boundary:
 
 ```text
-reward_i = (mean(other effective deal scores) - own effective deal score) / 100
+reward_i = -own_effective_deal_score
 ```
 
 On a non-terminal boundary the next deal is already present in `state.game`.

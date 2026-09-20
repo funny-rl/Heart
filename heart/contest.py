@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, replace
+from numbers import Integral
 
 import jax
 import jax.numpy as jnp
@@ -44,14 +45,36 @@ from heart.types import Observation
 
 MAX_SUBMISSION_BYTES = 8 * 1024 * 1024
 MAX_FLOPS_PER_DECISION = 5_000_000
+MAX_SEED = 2**32 - 1
 START_RATING = 1500.0
 RATING_SCALE = 400.0
-_CUSTOM_CALL = re.compile(r'call_target_name\s*=\s*"([^"]+)"')
+_CUSTOM_CALL = re.compile(
+    r'call_target_name\s*=\s*"([^"]+)"'
+    r'|stablehlo\.custom_call\s+@(?:"([^"]+)"|([\w.$-]+))'
+)
+_ALLOWED_CUSTOM_CALLS = frozenset({"shape_assertion"})
 _REGISTERED = False
 
 
 class SubmissionError(ValueError):
     """A submission that the contract refuses to run."""
+
+
+def _integer_parameter(
+    name: str,
+    value: int,
+    *,
+    minimum: int,
+    maximum: int | None = None,
+) -> int:
+    if isinstance(value, bool) or not isinstance(value, Integral):
+        raise TypeError(f"{name} must be an integer")
+    value = int(value)
+    if value < minimum:
+        raise ValueError(f"{name} must be at least {minimum}")
+    if maximum is not None and value > maximum:
+        raise ValueError(f"{name} must be at most {maximum}")
+    return value
 
 
 def _register() -> None:
@@ -140,6 +163,13 @@ def _cost(call, batch: int) -> float:
     return float(analysis.get("flops", 0.0)) / batch
 
 
+def _custom_call_targets(module: str) -> set[str]:
+    return {
+        next(target for target in match if target)
+        for match in _CUSTOM_CALL.findall(module)
+    }
+
+
 def load_submission(
     blob: bytes,
     name: str,
@@ -199,7 +229,9 @@ def load_submission(
             " the league does"
         )
 
-    targets = sorted(set(_CUSTOM_CALL.findall(exported.mlir_module())))
+    targets = sorted(
+        _custom_call_targets(exported.mlir_module()) - _ALLOWED_CUSTOM_CALLS
+    )
     if targets:
         raise SubmissionError(f"graph calls out of XLA: {targets}")
 
@@ -360,14 +392,21 @@ def _league_step(entries: list[Submission], batch: int):
         passed = jnp.take_along_axis(pass_hands, players[:, None, None], 1)[:, 0]
         observation = jax.vmap(_seat_observation)(state, players, passed, mine)
 
-        passes = jnp.stack([entry.call(observation)[0] for entry in entries])
-        plays = jnp.stack([entry.call(observation)[1] for entry in entries])
+        outputs = [entry.call(observation) for entry in entries]
+        passes = jnp.stack([output[0] for output in outputs])
+        plays = jnp.stack([output[1] for output in outputs])
         acting = jnp.take_along_axis(seating, players[:, None], 1)[:, 0]
+        selected_passes = passes[acting, rows]
+        selected_plays = plays[acting, rows]
+        nonfinite = ~(
+            jnp.all(jnp.isfinite(selected_passes), axis=-1)
+            & jnp.all(jnp.isfinite(selected_plays), axis=-1)
+        )
         pass_action = jnp.argmax(
-            jnp.where(observation.pass_action_mask, passes[acting, rows], -jnp.inf), -1
+            jnp.where(observation.pass_action_mask, selected_passes, -jnp.inf), -1
         )
         slot = jnp.argmax(
-            jnp.where(observation.play_action_mask, plays[acting, rows], -jnp.inf), -1
+            jnp.where(observation.play_action_mask, selected_plays, -jnp.inf), -1
         )
         card = jnp.take_along_axis(mine, slot[:, None], 1)[:, 0].astype(jnp.int32)
         actions = jnp.where(state.phase == PASS, pass_action, card)
@@ -382,6 +421,7 @@ def _league_step(entries: list[Submission], batch: int):
             carried_play,
             info.deal_completed,
             info.invalid_action,
+            nonfinite,
         )
 
     return step
@@ -399,18 +439,20 @@ def _play_matches(entries: list[Submission], keys, seating, steps: int):
     seating = jnp.asarray(seating)
     deals = np.zeros(batch, np.int64)
     refused = 0
+    nonfinite = 0
     for _ in range(steps):
         # A finished match has no legal action left, so it is neither stepped
         # for its result nor counted when it declines to move.
         alive = np.asarray(jax.device_get(states.phase != TERMINAL))
         if not alive.any():
             break
-        states, pass_hands, play_hands, settled, invalid = step(
+        states, pass_hands, play_hands, settled, invalid, bad_logits = step(
             states, pass_hands, play_hands, seating
         )
         deals += np.asarray(jax.device_get(settled)) * alive
         refused += int((np.asarray(jax.device_get(invalid)) & alive).sum())
-        if refused:
+        nonfinite += int((np.asarray(jax.device_get(bad_logits)) & alive).sum())
+        if refused or nonfinite:
             break
     return (
         np.asarray(jax.device_get(states.match_scores), np.float64),
@@ -418,7 +460,25 @@ def _play_matches(entries: list[Submission], keys, seating, steps: int):
         np.asarray(jax.device_get(states.winner_mask)),
         np.asarray(jax.device_get(states.phase == 2)),
         refused,
+        nonfinite,
     )
+
+
+def _league_schedule(count: int, lineups: int, rounds: int, seed: int):
+    rng = np.random.default_rng(seed)
+    schedule = []
+    for cycle_start in range(0, rounds, NUM_PLAYERS):
+        base_seating = np.stack(
+            [rng.permutation(count)[:NUM_PLAYERS] for _ in range(lineups)]
+        )
+        cycle_key = jax.random.fold_in(jax.random.key(seed), cycle_start // NUM_PLAYERS)
+        keys = jax.random.split(cycle_key, lineups)
+        cycle_rounds = min(NUM_PLAYERS, rounds - cycle_start)
+        schedule.extend(
+            (np.roll(base_seating, offset, axis=1), keys)
+            for offset in range(cycle_rounds)
+        )
+    return schedule
 
 
 def run_league(
@@ -433,36 +493,39 @@ def run_league(
 ) -> list[Standing]:
     """Seat the entries against each other and rank them with their error.
 
-    Every round reuses one set of deals for all seatings, and seats rotate
-    within a lineup, so entries are compared on the same cards rather than on
-    their luck. Two entries whose intervals overlap share a rank instead of
-    being ordered by noise. Each match is also read as the pairings its seats
-    imply and fitted to an Elo rating, with its own spread from resampling them.
+    Each block of up to four rounds keeps its lineups and deal keys while seats
+    rotate, so a complete block puts every entry in every seat on the same
+    cards. Adjacent entries whose gap is no larger than their combined standard
+    error share a rank instead of being ordered by noise. Each match is also
+    read as the pairings its seats imply and fitted to an Elo rating, with its
+    own spread from cluster resampling.
 
-    The ranking figure is **penalty points per deal**, lower being better. A
-    reward is this environment's normalisation of those points, so ranking on it
-    would make the leaderboard depend on a modelling choice rather than on the
-    game.
+    The ranking figure is **penalty points per deal**, lower being better. It is
+    reported directly rather than through the environment's sign-flipped reward.
     """
 
     if len(entries) < NUM_PLAYERS:
         raise ValueError(f"a table needs {NUM_PLAYERS} entries")
+    lineups = _integer_parameter("lineups", lineups, minimum=1)
+    rounds = _integer_parameter("rounds", rounds, minimum=1)
+    steps = _integer_parameter("steps", steps, minimum=1)
+    seed = _integer_parameter("seed", seed, minimum=0, maximum=MAX_SEED)
+    bootstrap = _integer_parameter("bootstrap", bootstrap, minimum=0)
+    chunk = _integer_parameter("chunk", chunk, minimum=1)
     # Tables are played in chunks so one batch stays a workable size, and every
     # action the rules refuse is counted rather than absorbed.
     width = max(1, min(chunk, lineups))
-    rng = np.random.default_rng(seed)
-    collected: dict[int, list[float]] = {index: [] for index in range(len(entries))}
+    collected: dict[int, dict[int, list[float]]] = {
+        index: {} for index in range(len(entries))
+    }
     dealt = dict.fromkeys(range(len(entries)), 0)
     won = dict.fromkeys(range(len(entries)), 0)
     lost = dict.fromkeys(range(len(entries)), 0)
     pairings: list[tuple] = []
+    pairing_groups: list[np.ndarray] = []
 
-    for round_index in range(rounds):
-        seating = np.stack(
-            [rng.permutation(len(entries))[:NUM_PLAYERS] for _ in range(lineups)]
-        )
-        seating = np.roll(seating, round_index, axis=1)
-        keys = jax.random.split(jax.random.key(seed + round_index), lineups)
+    schedule = _league_schedule(len(entries), lineups, rounds, seed)
+    for round_index, (seating, keys) in enumerate(schedule):
         pieces = [
             _play_matches(
                 entries,
@@ -473,10 +536,15 @@ def run_league(
             for start in range(0, lineups, width)
         ]
         refused = sum(piece[4] for piece in pieces)
+        nonfinite = sum(piece[5] for piece in pieces)
         if refused:
             raise RuntimeError(
                 f"the rollout offered {refused} actions the rules refused;"
                 " the standings would be meaningless"
+            )
+        if nonfinite:
+            raise RuntimeError(
+                f"policies returned non-finite logits for {nonfinite} live decisions"
             )
         scores, deals, winners, over = (
             np.concatenate([piece[index] for piece in pieces]) for index in range(4)
@@ -488,11 +556,16 @@ def run_league(
         per_deal = np.divide(scores, np.maximum(deals, 1)[:, None], dtype=np.float64)
         losers = scores == scores.max(axis=1, keepdims=True)
         pairings.append(_pairings(seating, scores.astype(np.float64)))
+        groups = (round_index // NUM_PLAYERS) * lineups + np.arange(lineups)
+        pairing_groups.append(np.tile(groups, 6))
         for seat in range(NUM_PLAYERS):
             for index in range(len(entries)):
                 chosen = seating[:, seat] == index
                 if chosen.any():
-                    collected[index].extend(per_deal[chosen, seat])
+                    for row in np.flatnonzero(chosen):
+                        collected[index].setdefault(int(groups[row]), []).append(
+                            float(per_deal[row, seat])
+                        )
                     won[index] += int(winners[chosen, seat].sum())
                     lost[index] += int(losers[chosen, seat].sum())
                     dealt[index] += int(deals[chosen].sum())
@@ -500,14 +573,31 @@ def run_league(
     left = np.concatenate([pair[0] for pair in pairings])
     right = np.concatenate([pair[1] for pair in pairings])
     outcome = np.concatenate([pair[2] for pair in pairings])
+    groups = np.concatenate(pairing_groups)
     ratings = _fit_elo(len(entries), left, right, outcome)
     generator = np.random.default_rng(seed + 1)
+    group_order = np.argsort(groups, kind="stable")
+    _, group_starts, group_sizes = np.unique(
+        groups[group_order], return_index=True, return_counts=True
+    )
+    group_indices = [
+        group_order[start : start + size]
+        for start, size in zip(group_starts, group_sizes, strict=True)
+    ]
     resampled = [
         _fit_elo(
             len(entries), *(part[picks] for part in (left, right, outcome)), passes=120
         )
         for picks in (
-            generator.integers(0, left.size, left.size) for _ in range(bootstrap)
+            np.concatenate(
+                [
+                    group_indices[index]
+                    for index in generator.integers(
+                        0, len(group_indices), len(group_indices)
+                    )
+                ]
+            )
+            for _ in range(bootstrap)
         )
     ]
     spread = (
@@ -518,10 +608,15 @@ def run_league(
 
     standings = []
     for index, entry in enumerate(entries):
-        values = np.asarray(collected[index], np.float64)
-        mean = float(values.mean()) if values.size else 0.0
+        cluster_values = np.asarray(
+            [np.mean(values) for values in collected[index].values()], np.float64
+        )
+        matches = sum(len(values) for values in collected[index].values())
+        mean = float(cluster_values.mean()) if cluster_values.size else 0.0
         error = (
-            float(values.std(ddof=1) / np.sqrt(values.size)) if values.size > 1 else 0.0
+            float(cluster_values.std(ddof=1) / np.sqrt(cluster_values.size))
+            if cluster_values.size > 1
+            else 0.0
         )
         standings.append(
             Standing(
@@ -529,11 +624,11 @@ def run_league(
                 entry.name,
                 mean,
                 error,
-                won[index] / max(values.size, 1),
-                lost[index] / max(values.size, 1),
+                won[index] / max(matches, 1),
+                lost[index] / max(matches, 1),
                 float(ratings[index]),
                 float(spread[index]),
-                int(values.size),
+                matches,
                 dealt[index],
                 entry.flops_per_decision,
             )

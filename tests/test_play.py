@@ -7,6 +7,7 @@ import threading
 import urllib.error
 import urllib.request
 
+import jax
 import numpy as np
 import pytest
 
@@ -18,6 +19,7 @@ from heart.play import (
     make_rule_seat_policy,
     pass_action_for,
     serve,
+    warm_up,
 )
 
 
@@ -50,9 +52,12 @@ def test_pass_action_maps_slots_to_its_combination():
         assert pass_action_for(list(reversed(slots))) == action
 
 
-@pytest.mark.parametrize("slots", [[0, 1], [0, 1, 2, 3], [0, 0, 1]])
+@pytest.mark.parametrize(
+    "slots",
+    [[0, 1], [0, 1, 2, 3], [0, 0, 1], [0, 1, 2.0], [0, 1, True], "012"],
+)
 def test_pass_action_rejects_malformed_selections(slots):
-    with pytest.raises(ValueError):
+    with pytest.raises((TypeError, ValueError)):
         pass_action_for(slots)
 
 
@@ -81,10 +86,38 @@ def test_game_requires_a_policy_for_every_other_seat():
         HumanGame(seats=_opponents(), human_seat=heart.NUM_PLAYERS)
 
 
+@pytest.mark.parametrize("human_seat", [True, 0.0, "0"])
+def test_game_rejects_non_integer_human_seat(human_seat):
+    with pytest.raises(TypeError, match="human seat"):
+        HumanGame(seats=_opponents(), human_seat=human_seat)
+
+
+@pytest.mark.parametrize("seed", [True, 0.0, "0"])
+def test_game_rejects_non_integer_seed(seed):
+    with pytest.raises(TypeError, match="seed"):
+        HumanGame(seats=_opponents(), seed=seed)
+
+
+@pytest.mark.parametrize("seed", [-1, 2**32])
+def test_game_rejects_seed_outside_uint32(seed):
+    with pytest.raises(ValueError, match="seed"):
+        HumanGame(seats=_opponents(), seed=seed)
+
+
 def test_game_stops_on_the_human_turn():
     game = _ready(seats=_opponents(human_seat=2), human_seat=2, seed=11)
     assert game.waiting_for_human
     assert int(game.state.active_player) == 2
+
+
+@pytest.mark.parametrize("human_seat", range(heart.NUM_PLAYERS))
+def test_warm_up_uses_the_configured_human_seat(human_seat):
+    warm_up(
+        _opponents(human_seat=human_seat),
+        human_seat=human_seat,
+        seed=12,
+        actions=1,
+    )
 
 
 def test_advance_once_plays_a_single_seat_and_stops_at_the_human():
@@ -97,6 +130,27 @@ def test_advance_once_plays_a_single_seat_and_stops_at_the_human():
     assert game.waiting_for_human and not game.pending
     assert len(game.log) == steps
     assert game.advance_once() is False
+
+
+def test_advance_once_rejects_non_integer_plugin_action():
+    def invalid_policy(state, player, key):
+        return 0.5
+
+    seats = _opponents(human_seat=3)
+    seats[0] = invalid_policy
+    game = HumanGame(seats=seats, human_seat=3, seed=13)
+    before = game.state
+    before_key = jax.random.key_data(game.key)
+    with pytest.raises(ValueError, match="illegal action"):
+        game.advance_once()
+    for earlier, later in zip(
+        jax.tree.leaves(before), jax.tree.leaves(game.state), strict=True
+    ):
+        if jax.dtypes.issubdtype(earlier.dtype, jax.dtypes.prng_key):
+            earlier = jax.random.key_data(earlier)
+            later = jax.random.key_data(later)
+        np.testing.assert_array_equal(np.asarray(earlier), np.asarray(later))
+    np.testing.assert_array_equal(before_key, jax.random.key_data(game.key))
 
 
 def test_illegal_human_action_is_refused_and_leaves_state_untouched():
@@ -208,6 +262,40 @@ def _request(url, payload=None):
     request = urllib.request.Request(url, data=data, headers=headers)
     with urllib.request.urlopen(request, timeout=10) as response:
         return response.status, response.read()
+
+
+@pytest.mark.parametrize(
+    ("path", "payload"),
+    [
+        ("/action", {"slots": [0, 1, 2.0]}),
+        ("/action", {"card": 0.5}),
+        ("/advance", {"steps": 1.5}),
+        ("/advance", {"steps": True}),
+        ("/advance", []),
+    ],
+)
+def test_server_rejects_non_integer_and_non_object_inputs(path, payload):
+    game = _ready(seats=_opponents(), seed=14)
+    server = serve(game, "127.0.0.1", 0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    before = game.state
+    try:
+        with pytest.raises(urllib.error.HTTPError) as refusal:
+            _request(base + path, payload)
+        assert refusal.value.code == 400
+        for earlier, later in zip(
+            jax.tree.leaves(before), jax.tree.leaves(game.state), strict=True
+        ):
+            if jax.dtypes.issubdtype(earlier.dtype, jax.dtypes.prng_key):
+                earlier = jax.random.key_data(earlier)
+                later = jax.random.key_data(later)
+            np.testing.assert_array_equal(np.asarray(earlier), np.asarray(later))
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
 
 
 def test_server_serves_the_page_and_applies_actions():

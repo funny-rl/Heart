@@ -15,33 +15,27 @@
 <!-- standings:start -->
 <div align="center">
 
-### 🥇 &nbsp; RL (TA) &nbsp; · &nbsp; **5.72** penalty points per deal
+### 🥇 &nbsp; RL (TA) &nbsp; · &nbsp; **4.76** penalty points per deal
 
-<sub>8,192 complete matches to 100 points · 91,433 deals · rotating seats · shared deals</sub>
+<sub>8,192 complete matches to 100 points · 90,162 deals · rotating seats · shared deals</sub>
 
 </div>
 
 | | Entry | Penalty / deal | vs field | Won | Last | Elo | Matches |
 | :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 🥇 | **RL (TA)** | **5.719** &nbsp;<sub>± 0.024</sub> | −1.02 | 39.8 % | 11.5 % | **1580** &nbsp;<sub>± 2</sub> | 8,192 |
-| 🥈 | **rule-hard** | **6.713** &nbsp;<sub>± 0.027</sub> | −0.02 | 24.7 % | 24.7 % | **1500** &nbsp;<sub>± 2</sub> | 8,192 |
-| 🥉 | rule-medium | 7.150 &nbsp;<sub>± 0.028</sub> | +0.41 | 19.8 % | 30.5 % | 1467 &nbsp;<sub>± 2</sub> | 8,192 |
-| 4 | rule-easy | 7.359 &nbsp;<sub>± 0.028</sub> | +0.62 | 18.0 % | 33.8 % | 1453 &nbsp;<sub>± 2</sub> | 8,192 |
+| 🥇 | **RL (TA)** | **4.756** &nbsp;<sub>± 0.019</sub> | −1.92 | 57.1 % | 4.1 % | **1658** &nbsp;<sub>± 1</sub> | 8,192 |
+| 🥈 | **rule-hard** | **7.094** &nbsp;<sub>± 0.022</sub> | +0.42 | 15.7 % | 28.0 % | **1461** &nbsp;<sub>± 1</sub> | 8,192 |
+| 🥉 | rule-medium | 7.344 &nbsp;<sub>± 0.023</sub> | +0.66 | 14.6 % | 33.0 % | 1445 &nbsp;<sub>± 2</sub> | 8,192 |
+| 4 | rule-easy | 7.522 &nbsp;<sub>± 0.023</sub> | +0.84 | 14.5 % | 35.4 % | 1436 &nbsp;<sub>± 1</sub> | 8,192 |
 
 <div align="center">
 <sub>
 
-Updated 2026-09-18 · field average **6.74** points per deal
+Updated 2026-09-21 · field average **6.68** points per deal
 
 </sub>
 </div>
 <!-- standings:end -->
-
-> **Being re-measured.** The rule tiers learned to defend a shot at the moon
-> after this table was run, so the three `rule-*` rows describe opponents that
-> no longer exist and every figure around them moved with the field. Treat the
-> numbers below as the shape of the thing rather than as current results until
-> the next run replaces them.
 
 > **Read it honestly.** `(TA)` marks a policy this project trained; it is here
 > as a yardstick, not as a contender. The figures move when the field moves — a
@@ -112,7 +106,7 @@ Three things follow from the interface, and they are easy to miss:
   Variety across games comes from the deals, not from the entry.
 - **Both heads are always called.** During the passing phase the play logits are
   ignored and vice versa, so an entry may return anything for the head that is
-  not in use — but it must return the right shape.
+  not in use — but both heads must retain the required shape and finite values.
 
 ## What a policy sees
 
@@ -158,17 +152,19 @@ import jax.numpy as jnp
 from pathlib import Path
 from heart.contest import export_policy
 
-def policy(observation):                  # any architecture you like
+
+def policy(observation):  # any architecture you like
     hand = observation.play_hand_cards.astype(jnp.float32)
     hidden = jnp.tanh(hand @ first_weights)
     return hidden @ pass_weights, hidden @ play_weights
+
 
 Path("entry.bin").write_bytes(export_policy(policy))
 ```
 
 `export_policy` exports for the platforms this machine can run, which is what
 the host checks against. Serialising needs `flatbuffers`:
-`pip install 'heart-marl[contest]'`.
+`python -m pip install -e '.[contest]'` from a repository checkout.
 
 ### Check it before you send it
 
@@ -218,6 +214,9 @@ name = "clever-passer"        # what the standings call it; optional, defaults t
 description = "one line: what the policy does"
 ```
 
+Both values are single-line strings. `name` is at most 64 characters,
+`description` is at most 200, and `entry.toml` is at most 16 KiB.
+
 1. Fork the repository and create a branch.
 2. Add — or edit — `submissions/<your-handle>/`.
 3. Run `python submissions/validate.py`, the same check CI runs.
@@ -239,32 +238,35 @@ You may rename the entry whenever you like — `name` is only what the standings
 print — but two teams cannot show the same name, since a table nobody can read
 is worse than an awkward name.
 
-A team directory is 2 to 39 lowercase letters, digits or hyphens, matching the
-shape of a GitHub handle.
+A team directory is your 1-to-39-character lowercase GitHub handle: letters,
+digits, and single internal hyphens.
 
 ## How entries are ranked
 
-Entries meet in sampled four-seat line-ups. **Seats rotate** and every round
-**deals from a shared seed**, so entries are compared on the same cards rather
-than on their luck.
+Entries meet in sampled four-seat line-ups. Each block of up to four rounds
+keeps the line-up and deal keys fixed while **seats rotate**, so a complete
+four-round block puts every entry in every seat on the same cards. A new block
+samples new line-ups and deals.
 
 The ranking figure is **penalty points per deal, lower being better**. That is
-the game's own score. A reward is this environment's normalisation of those
-points — zero-sum, divided by the match target — and ranking on it would make
-the standings depend on a modelling choice rather than on Hearts. Two entries
-whose intervals overlap **share a rank** rather than being ordered by noise.
+the game's own score. Environment reward is merely its sign-flipped form, so
+the standings report the immediately readable game score. Adjacent entries
+whose gap is no larger than their combined standard error **share a rank**
+rather than being ordered by noise.
 
 **Elo** is reported beside it. Every table is read as the seat-versus-seat
 pairings it implies, each won by the lower score, and fitted to a rating;
 sequential Elo would depend on the order games happened to run, so the fit
-repeats over the whole record. Its spread comes from resampling the pairings.
+repeats over the whole record. Score errors and Elo spreads treat each shared
+deal line-up as one independent cluster, rather than pretending its four seat
+rotations are independent samples.
 
-Sharing a rank is not a formality. **The ± beside each figure is the sample the
-standings actually ran on** — it moves with the number of entries, how many
-matches were played and how far the field spreads, so read it from the table
-rather than from anything written here. Two entries closer together than their
-errors have not been separated, and a field measured over a few hundred deals
-will mostly tie. It should say so rather than invent an order.
+Sharing a rank is not a formality. **The ± beside each figure is the standard
+error from the shared-deal clusters the standings actually ran** — it moves
+with the number of entries, how many independent line-ups were played and how
+far the field spreads, so read it from the table rather than from anything
+written here. Adjacent entries closer than their combined error have not been
+separated. The table should say so rather than invent an order.
 
 ```python
 from heart.contest import run_league

@@ -22,10 +22,11 @@ def test_ansi_defaults_to_player_zero_view():
 
 def _advance_state(count: int):
     env = heart.DealEnv()
+    step = jax.jit(env.step)
     state, observation = env.reset(jax.random.key(413))
     for _ in range(count):
         action = observation.action_mask.argmax()
-        state, observation, *_ = env.step(state, action)
+        state, observation, *_ = step(state, action)
     return state
 
 
@@ -47,7 +48,10 @@ def test_ansi_labels_live_penalties_and_terminal_scores_and_rewards():
     assert "Penalties:" in live
     assert "Effective scores:" not in live
 
-    final = heart.render_ansi(_advance_state(52))
+    state = _advance_state(52)
+    final = heart.render_ansi(state)
     assert "Penalties:" in final
     assert "Effective scores:" in final
     assert "Terminal rewards:" in final
+    for player, score in enumerate(np.asarray(state.scores)):
+        assert f"P{player}={0.0 - float(score):+.1f}" in final

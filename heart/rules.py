@@ -114,14 +114,12 @@ def observe(
         and jnp.issubdtype(raw_player.dtype, jnp.integer)
         and not jnp.issubdtype(raw_player.dtype, jnp.bool_)
     )
-    player = (
-        raw_player.astype(jnp.int32)
-        if is_scalar_integer
-        else jnp.asarray(0, dtype=jnp.int32)
-    )
-    valid_player = (
-        jnp.asarray(is_scalar_integer) & (player >= 0) & (player < NUM_PLAYERS)
-    )
+    if is_scalar_integer:
+        valid_player = (raw_player >= 0) & (raw_player < NUM_PLAYERS)
+        player = raw_player.astype(jnp.int32)
+    else:
+        valid_player = jnp.asarray(False)
+        player = jnp.asarray(0, dtype=jnp.int32)
     safe_player = jnp.clip(player, 0, NUM_PLAYERS - 1)
     is_active = valid_player & (player == state.active_player)
     mask = jnp.where(is_active, legal_action_mask(state, rules), False)
@@ -157,26 +155,8 @@ def settle_deal(
     )
     scores = jnp.where(shot_moon, moon_scores, penalties)
     winner_mask = scores == jnp.min(scores)
-    moon_rewards = jnp.where(
-        jnp.arange(NUM_PLAYERS) == candidate,
-        0.0,
-        -1.0,
-    )
-    rewards = jnp.where(
-        shot_moon,
-        moon_rewards,
-        relative_rewards(scores, normalizer=float(total_points)),
-    )
+    rewards = jnp.zeros_like(scores, dtype=jnp.float32) - scores.astype(jnp.float32)
     return scores, moon_shooter, winner_mask, rewards
-
-
-def relative_rewards(scores: Array, normalizer: float = 1.0) -> Array:
-    """Return mathematically zero-sum opponent-relative rewards."""
-
-    float_scores = scores.astype(jnp.float32)
-    total = jnp.sum(float_scores, dtype=jnp.float32)
-    rewards = ((total - float_scores) / (NUM_PLAYERS - 1) - float_scores) / normalizer
-    return rewards
 
 
 def _apply_legal_action(

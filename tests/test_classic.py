@@ -18,9 +18,8 @@ from heart.classic import (
     PASS_LEFT,
     PASS_RIGHT,
     PLAY,
-    ClassicRules,
+    _deal_rewards,
     _new_deal_state,
-    _relative_rewards,
 )
 
 
@@ -71,23 +70,14 @@ def test_pass_action_table_is_exactly_thirteen_choose_three():
     assert np.all(table[:, 1] < table[:, 2])
 
 
-def test_classic_keeps_normalized_relative_reward_for_moon_scores():
-    """A moon takes the ordinary path; `classic-v0` has no special-case reward.
-
-    The divisor is the match target, so the shooter's 26-point swing reads as
-    0.26 of a match rather than as a whole one.
-    """
-
-    rules = ClassicRules()
-    rewards = _relative_rewards(jnp.asarray([0, 26, 26, 26], dtype=jnp.int16), rules)
-    np.testing.assert_allclose(
-        np.asarray(rewards), np.asarray([0.26, -0.26 / 3.0, -0.26 / 3.0, -0.26 / 3.0])
+def test_classic_keeps_raw_penalty_rewards_for_moon_scores():
+    rewards = _deal_rewards(jnp.asarray([0, 26, 26, 26], dtype=jnp.int16))
+    np.testing.assert_array_equal(
+        np.asarray(rewards), np.asarray([0.0, -26.0, -26.0, -26.0])
     )
-    assert np.isclose(float(rewards.sum()), 0.0, atol=1e-6)
 
 
-def test_a_match_of_deal_rewards_sums_to_its_final_margin():
-    """What the match-target divisor buys: rewards and scores in one unit."""
+def test_a_match_of_deal_rewards_is_the_negative_final_score():
 
     env = heart.make("classic-v0")
     state, observation = env.reset(jax.random.key(3))
@@ -105,8 +95,7 @@ def test_a_match_of_deal_rewards_sums_to_its_final_margin():
         totals += np.asarray(rewards, dtype=np.float64)
 
     final = np.asarray(state.match_scores, dtype=np.float64)
-    margin = ((final.sum() - final) / 3.0 - final) / ClassicRules().target_score
-    np.testing.assert_allclose(totals, margin, atol=1e-5)
+    np.testing.assert_allclose(totals, -final, atol=1e-5)
 
 
 @pytest.mark.parametrize(
@@ -183,8 +172,7 @@ def test_first_deal_reward_and_boundary_state_are_consistent():
     state, _ = env.reset(jax.random.key(121))
     state, rewards, info = _finish_first_deal(env, state)
     deal_scores = np.asarray(info.deal_scores)
-    target = ClassicRules().target_score
-    expected_rewards = ((deal_scores.sum() - deal_scores) / 3.0 - deal_scores) / target
+    expected_rewards = -deal_scores.astype(np.float32)
 
     assert bool(info.deal_completed)
     assert not bool(info.match_completed)
@@ -199,7 +187,7 @@ def test_first_deal_reward_and_boundary_state_are_consistent():
     np.testing.assert_array_equal(
         np.asarray(state.last_deal_rewards), np.asarray(rewards)
     )
-    assert np.isclose(float(rewards.sum()), 0.0, rtol=0.0, atol=1e-6)
+    assert np.isclose(float(rewards.sum()), -float(deal_scores.sum()), atol=1e-6)
     assert int(state.game.num_cards_played) == 0
     np.testing.assert_array_equal(np.asarray(state.game.hands).sum(axis=1), [13] * 4)
 
@@ -226,6 +214,23 @@ def test_jitted_invalid_observer_fails_closed(player):
     assert not bool(observation.play_action_mask.any())
 
 
+def test_jitted_classic_observer_rejects_large_player_before_narrowing():
+    with jax.experimental.enable_x64():
+        env = heart.make("classic-v0")
+        state, _ = env.reset(jax.random.key(132))
+        observation = jax.jit(env.observe)(
+            state,
+            jnp.asarray(2**32, dtype=jnp.int64),
+        )
+
+        assert not bool(observation.game.hand.any())
+        assert not bool(observation.game.action_mask.any())
+        assert np.all(np.asarray(observation.cards_passed) == -1)
+        assert np.all(np.asarray(observation.cards_received) == -1)
+        assert not bool(observation.pass_action_mask.any())
+        assert not bool(observation.play_action_mask.any())
+
+
 def test_classic_reset_and_phase_steps_are_jittable():
     env = heart.make("classic-v0")
     key = jax.random.key(141)
@@ -237,3 +242,18 @@ def test_classic_reset_and_phase_steps_are_jittable():
     eager = env.step(eager_state, 0)
     compiled = jax.jit(env.step)(compiled_state, jnp.asarray(0))
     _assert_trees_equal(compiled, eager)
+
+
+@pytest.mark.parametrize("value", [2**32, 2**32 + NUM_PASS_ACTIONS])
+def test_classic_rejects_large_64_bit_actions_before_narrowing(value):
+    with jax.experimental.enable_x64():
+        env = heart.make("classic-v0")
+        state, _ = env.reset(jax.random.key(151))
+        result = jax.jit(env.step)(state, jnp.asarray(value, dtype=jnp.int64))
+        next_state, _, rewards, terminated, info = result
+        jax.block_until_ready(next_state)
+
+        _assert_trees_equal(next_state, state)
+        np.testing.assert_array_equal(np.asarray(rewards), np.zeros(4))
+        assert not bool(terminated)
+        assert bool(info.invalid_action)

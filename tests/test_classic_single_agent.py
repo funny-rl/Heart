@@ -174,6 +174,33 @@ def test_invalid_action_has_empty_trace_and_terminal_discount_is_zero():
     assert float(terminal_info.discount) == 0.0
 
 
+@pytest.mark.parametrize("value", [2**32, 2**32 + 285])
+def test_single_agent_rejects_large_64_bit_actions_before_narrowing(value):
+    with jax.experimental.enable_x64():
+        env = heart.make_single_agent(
+            "classic-v0",
+            controlled_player=0,
+            opponents="easy",
+        )
+        state, _ = env.reset(jax.random.key(1011))
+        next_state, _, reward, terminated, info = jax.jit(env.step)(
+            state,
+            jnp.asarray(value, dtype=jnp.int64),
+        )
+        jax.block_until_ready(next_state)
+
+        for before, after in zip(
+            jax.tree.leaves(state),
+            jax.tree.leaves(next_state),
+            strict=True,
+        ):
+            np.testing.assert_array_equal(_as_numpy(after), _as_numpy(before))
+        assert float(reward) == 0.0
+        assert not bool(terminated)
+        assert bool(info.core.invalid_action)
+        assert int(info.event_count) == 0
+
+
 @pytest.mark.parametrize("integer_type", [np.int32, np.int64])
 def test_classic_factory_accepts_numpy_integer_players(integer_type):
     env = heart.make_single_agent("classic-v0", controlled_player=integer_type(1))

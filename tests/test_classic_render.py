@@ -33,7 +33,7 @@ def _boundary_state(state, *, hold: bool = False):
         pass_direction=jnp.asarray(direction, dtype=jnp.int8),
         deal_boundary=jnp.asarray(True),
         last_deal_scores=jnp.asarray([1, 2, 3, 20], dtype=jnp.int16),
-        last_deal_rewards=jnp.asarray([1.0, 0.5, 0.0, -1.5], dtype=jnp.float32),
+        last_deal_rewards=jnp.asarray([-1.0, -2.0, -3.0, -20.0], dtype=jnp.float32),
         last_deal_moon_shooter=jnp.asarray(-1, dtype=jnp.int8),
     )
 
@@ -41,7 +41,7 @@ def _boundary_state(state, *, hold: bool = False):
 def _terminal_state(state):
     game = state.game._replace(
         terminated=jnp.asarray(True),
-        scores=jnp.asarray([0, 26, 10, 10], dtype=jnp.int16),
+        scores=jnp.asarray([0, 26, 26, 26], dtype=jnp.int16),
         penalties=jnp.asarray([26, 0, 0, 0], dtype=jnp.int16),
         winner_mask=jnp.asarray([True, False, False, False]),
     )
@@ -51,7 +51,7 @@ def _terminal_state(state):
         phase=jnp.asarray(heart.TERMINAL, dtype=jnp.int8),
         match_scores=jnp.asarray([101, 80, 110, 120], dtype=jnp.int16),
         last_deal_scores=game.scores,
-        last_deal_rewards=jnp.asarray([1.0, -1.0, 0.0, 0.0], dtype=jnp.float32),
+        last_deal_rewards=jnp.asarray([0.0, -26.0, -26.0, -26.0], dtype=jnp.float32),
         deal_boundary=jnp.asarray(True),
         winner_mask=jnp.asarray([False, True, False, False]),
         terminated=jnp.asarray(True),
@@ -86,7 +86,7 @@ def test_classic_html_deal_summary_and_pass_flow_do_not_overlap(classic_state):
 
     assert "딜 1 정산" in rendered
     assert "P3</b> 20점" in rendered
-    assert "-1.50" in rendered
+    assert "-20.00" in rendered
     assert "다음: 오른쪽 패싱" in rendered
     assert "3장 오른쪽 전달" not in rendered
     assert ".deal-summary,.pass-flow{position:absolute" not in rendered
@@ -111,7 +111,7 @@ def test_classic_html_terminal_uses_match_winner_and_classic_rewards(classic_sta
     highlighted = {int(player) for classes, player in panels if "winner" in classes}
     assert highlighted == {1}
     rewards = re.findall(r'<span class="reward">보상 ([+-]\d+\.\d)</span>', rendered)
-    assert rewards == ["+1.0", "-1.0", "+0.0", "+0.0"]
+    assert rewards == ["+0.0", "-26.0", "-26.0", "-26.0"]
     assert "최종 경기 결과" in rendered
 
 
@@ -123,6 +123,17 @@ def test_all_classic_renderers_reject_invalid_viewer(classic_state, viewer):
         heart.render_classic_ansi(classic_state, viewer=viewer)
     pytest.importorskip("PIL.Image")
     with pytest.raises(ValueError, match="viewer"):
+        heart.render_classic_gif_frame(classic_state, viewer=viewer)
+
+
+@pytest.mark.parametrize("viewer", [True, 0.5, "0"])
+def test_all_classic_renderers_reject_non_integer_viewer(classic_state, viewer):
+    with pytest.raises(TypeError, match="viewer"):
+        heart.render_classic_html(classic_state, viewer=viewer)
+    with pytest.raises(TypeError, match="viewer"):
+        heart.render_classic_ansi(classic_state, viewer=viewer)
+    pytest.importorskip("PIL.Image")
+    with pytest.raises(TypeError, match="viewer"):
         heart.render_classic_gif_frame(classic_state, viewer=viewer)
 
 
@@ -146,8 +157,8 @@ def test_classic_ansi_pass_and_deal_summary_semantics(classic_state):
     assert "P0=2♣ 3♣ 4♣" in heart.render_classic_ansi(classic_state, viewer=None)
 
     boundary = heart.render_classic_ansi(_boundary_state(classic_state))
-    assert "Last deal: P0=1(+1.00)" in boundary
-    assert "P3=20(-1.50)" in boundary
+    assert "Last deal: P0=1(-1.00)" in boundary
+    assert "P3=20(-20.00)" in boundary
 
 
 def test_classic_ansi_terminal_has_match_winner_and_no_active_arrow(classic_state):
@@ -175,6 +186,27 @@ def test_classic_gif_pass_and_boundary_frames_are_distinct(monkeypatch, classic_
     deal_entries = [(xy, text) for xy, text in texts if text == "DEAL 1 COMPLETE"]
     assert len(pass_entries) == 0
     assert len(deal_entries) == 1
+
+
+def test_classic_gif_hides_other_players_pass_cards(monkeypatch, classic_state):
+    pytest.importorskip("PIL.Image")
+    import heart.classic_render as renderer
+
+    texts = []
+
+    def record(draw, xy, text, font, fill):
+        texts.append(text)
+
+    monkeypatch.setattr(renderer, "_center", record)
+    renderer.render_classic_gif_frame(classic_state, viewer=0)
+    seat_view = " ".join(texts)
+    assert "2♣/3♣/4♣" in seat_view
+    assert "2♦/3♦/4♦" not in seat_view
+    assert "P1 ??/??/??" in seat_view
+
+    texts.clear()
+    renderer.render_classic_gif_frame(classic_state, viewer=None)
+    assert "2♦/3♦/4♦" in " ".join(texts)
 
 
 def test_classic_gif_terminal_names_match_winner(monkeypatch, classic_state):

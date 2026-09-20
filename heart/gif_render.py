@@ -16,7 +16,7 @@ from heart.cards import (
     RANK_NAMES,
     SUIT_SYMBOLS,
 )
-from heart.render import _terminal_rewards, _visible_trick
+from heart.render import _terminal_rewards, _validate_viewer, _visible_trick
 from heart.rules import legal_action_mask
 from heart.types import State
 
@@ -120,8 +120,7 @@ def render_gif_frame(
     in their true counts. ``None`` reveals every hand.
     """
 
-    if viewer is not None and not 0 <= viewer < NUM_PLAYERS:
-        raise ValueError("viewer must be in [0, 4) or None")
+    viewer = _validate_viewer(viewer)
     if size[0] < 640 or size[1] < 360:
         raise ValueError("GIF frame size must be at least 640x360")
 

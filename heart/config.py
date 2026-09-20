@@ -28,6 +28,13 @@ class SingleDealRules:
             raise ValueError(
                 f"queen_of_spades_penalty must be at most {MAX_QUEEN_OF_SPADES_PENALTY}"
             )
+        for name in (
+            "forbid_first_trick_points",
+            "require_hearts_broken",
+            "shooting_the_moon",
+        ):
+            if not isinstance(getattr(self, name), bool):
+                raise TypeError(f"{name} must be a boolean")
 
 
 SINGLE = SingleDealRules()

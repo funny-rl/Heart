@@ -31,15 +31,29 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+[project.urls]
+Homepage = "https://github.com/funny-rl/Heart"
+Repository = "https://github.com/funny-rl/Heart.git"
+Issues = "https://github.com/funny-rl/Heart/issues"
+Documentation = "https://github.com/funny-rl/Heart/tree/main/docs"
+
 [project.optional-dependencies]
-test = ["pytest>=8"]
+test = ["pytest>=8", "tomli>=2; python_version < '3.11'"]
 render = ["pillow>=10"]
 contest = ["flatbuffers>=23"]
-dev = ["build>=1", "flatbuffers>=23", "pillow>=10", "pytest>=8", "ruff>=0.6"]
+dev = [
+  "build>=1",
+  "flatbuffers>=23",
+  "pillow>=10",
+  "pytest>=8",
+  "ruff>=0.6",
+  "tomli>=2; python_version < '3.11'",
+]
 
 [tool.setuptools.packages.find]
 include = ["heart*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-q"

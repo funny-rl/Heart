@@ -1,4 +1,4 @@
-"""Full-observability renderers for classic-v0 match and deal boundaries."""
+"""Seat-view and omniscient renderers for classic-v0 match boundaries."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from heart.classic import (
 )
 from heart.gif_render import _center, _font, _pillow, render_gif_frame
 from heart.html_render import render_html, render_replay_html
+from heart.render import _validate_viewer
 
 _DIRECTION_LABELS = {
     "left": "왼쪽",
@@ -208,8 +209,7 @@ def render_classic_ansi(state: ClassicState, viewer: int | None = 0) -> str:
     """
 
     state = device_get(state)
-    if viewer is not None and not 0 <= viewer < NUM_PLAYERS:
-        raise ValueError(f"viewer must be in [0, {NUM_PLAYERS}) or None")
+    viewer = _validate_viewer(viewer)
     lines = [
         _phase_text(state),
         "Match scores: "
@@ -266,6 +266,7 @@ def render_classic_gif_frame(
 ) -> Any:
     """Render one classic match frame, including pass and deal overlays."""
 
+    viewer = _validate_viewer(viewer)
     state = device_get(state)
     proxy = state.game._replace(active_player=state.active_player)
     canvas = render_gif_frame(
@@ -323,14 +324,17 @@ def render_classic_gif_frame(
         )
         _center(draw, (sx(480), sy(291)), text, font, "#fcd34d")
         selected = np.asarray(state.pass_cards)
-        choice_text = "  ".join(
-            f"P{player} "
-            + "/".join(
+        choices = []
+        for player in range(NUM_PLAYERS):
+            cards = [
                 CARD_NAMES[int(card)] for card in selected[player] if int(card) >= 0
-            )
-            for player in range(NUM_PLAYERS)
-            if np.any(selected[player] >= 0)
-        )
+            ]
+            if not cards:
+                continue
+            if viewer is not None and player != viewer:
+                cards = ["??"] * len(cards)
+            choices.append(f"P{player} " + "/".join(cards))
+        choice_text = "  ".join(choices)
         if choice_text:
             _center(draw, (sx(480), sy(311)), choice_text, small, "#f8fafc")
 

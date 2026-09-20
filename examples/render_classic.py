@@ -19,6 +19,7 @@ def main() -> None:
     args = parser.parse_args()
 
     env = heart.make("classic-v0")
+    step = jax.jit(env.step)
     state, observation = env.reset(jax.random.key(args.seed))
     states = [state]
 
@@ -29,7 +30,7 @@ def main() -> None:
             else observation.play_action_mask
         )
         action = jnp.argmax(mask)
-        state, observation, *_ = env.step(state, action)
+        state, observation, *_ = step(state, action)
         states.append(state)
 
     gif = heart.save_classic_gif(states, args.gif, viewer=args.viewer)

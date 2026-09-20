@@ -41,10 +41,11 @@ def test_gif_rejects_invalid_inputs():
 
 def _advance_state(count: int):
     env = heart.DealEnv()
+    step = jax.jit(env.step)
     state, observation = env.reset(jax.random.key(407))
     for _ in range(count):
         action = observation.action_mask.argmax()
-        state, observation, *_ = env.step(state, action)
+        state, observation, *_ = step(state, action)
     return state
 
 

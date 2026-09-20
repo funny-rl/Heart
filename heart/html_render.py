@@ -19,7 +19,7 @@ from heart.cards import (
     RANK_NAMES,
     SUIT_SYMBOLS,
 )
-from heart.render import _terminal_rewards, _visible_trick
+from heart.render import _terminal_rewards, _validate_viewer, _visible_trick
 from heart.types import State
 
 _SEATS = ("bottom", "left", "top", "right")
@@ -107,8 +107,7 @@ def render_html(
     to lead the next trick should see.
     """
 
-    if viewer is not None and not 0 <= viewer < NUM_PLAYERS:
-        raise ValueError(f"viewer must be in [0, {NUM_PLAYERS}) or None")
+    viewer = _validate_viewer(viewer)
 
     from heart.rules import legal_action_mask
 

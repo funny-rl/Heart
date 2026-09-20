@@ -15,6 +15,9 @@ name = "clever-passer"        # what the standings call it; optional
 description = "one line: what the policy does"
 ```
 
+Both values are single-line strings. `name` is at most 64 characters,
+`description` is at most 200, and `entry.toml` is at most 16 KiB.
+
 Open a pull request that adds — or edits — that directory. CI validates the
 entry on the pull request, so a broken file fails before a human looks at it.
 
@@ -22,5 +25,6 @@ entry on the pull request, so a broken file fails before a human looks at it.
 path, so Git records a modification rather than a new row, and the standings are
 re-run after the merge. Two teams may not show the same `name`.
 
-A team directory is 2 to 39 lowercase letters, digits or hyphens. Check yours
-with `python submissions/validate.py`.
+A team directory is your 1-to-39-character lowercase GitHub handle: letters,
+digits, and single internal hyphens. Check yours with
+`python submissions/validate.py`.

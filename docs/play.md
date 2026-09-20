@@ -13,7 +13,8 @@ python -m heart --human-seat 2 --port 8080 --seed 7
 ```
 
 The command prints the URL to open. `--seat` is given once per non-human seat in
-seat order, or once to apply to all of them.
+seat order, or once to apply to all of them. Seeds are integers from 0 through
+`2**32 - 1`.
 
 ## Seat specifications
 
@@ -77,4 +78,4 @@ a programmatic caller or a test wants.
 
 Interactive play steps the environment one action at a time, so `heart.play`
 JIT-compiles the transition, the observation, and the rule policies once. The
-first action absorbs that compile; later actions cost single-digit milliseconds.
+first action absorbs that compile; later actions reuse the compiled executables.

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from numbers import Integral
+
 import jax.numpy as jnp
 
 NUM_PLAYERS = 4
@@ -24,6 +26,12 @@ QUEEN = 10
 def card_id(suit: int, rank: int) -> int:
     """Return the canonical card ID for zero-based suit and rank indices."""
 
+    if isinstance(suit, bool) or not isinstance(suit, Integral):
+        raise TypeError("suit must be an integer")
+    if isinstance(rank, bool) or not isinstance(rank, Integral):
+        raise TypeError("rank must be an integer")
+    suit = int(suit)
+    rank = int(rank)
     if not 0 <= suit < NUM_SUITS:
         raise ValueError(f"suit must be in [0, {NUM_SUITS}), got {suit}")
     if not 0 <= rank < NUM_RANKS:
@@ -54,6 +62,9 @@ CARD_NAMES = tuple(
 def card_name(card: int) -> str:
     """Return a compact human-readable card name."""
 
+    if isinstance(card, bool) or not isinstance(card, Integral):
+        raise TypeError("card must be an integer")
+    card = int(card)
     if not 0 <= card < NUM_CARDS:
         raise ValueError(f"card must be in [0, {NUM_CARDS}), got {card}")
     return CARD_NAMES[card]

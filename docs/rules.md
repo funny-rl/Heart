@@ -29,14 +29,14 @@ mask.
 
 ## Penalties and winners
 
-Each captured heart is 1 raw penalty point. Captured Q♠ is 5. The normal deal
-therefore distributes 18 total raw points. The player or tied players with the
+Each captured heart is 1 raw penalty point. Captured Q♠ is 13. The normal deal
+therefore distributes 26 total raw points. The player or tied players with the
 lowest effective score win.
 
-If one player captures all 18 raw points, shooting the moon applies:
+If one player captures all 26 raw points, shooting the moon applies:
 
 - the shooter receives effective score 0;
-- every opponent receives effective score 18;
+- every opponent receives effective score 26;
 - only the shooter is marked as winner.
 
 `penalties` retains raw captured points; terminal `scores` contains the effective
@@ -44,26 +44,23 @@ moon-adjusted result.
 
 ## Reward
 
-All non-terminal transitions return `[0, 0, 0, 0]`. For an ordinary deal at
-termination:
+All non-terminal transitions return `[0, 0, 0, 0]`. At termination:
 
 ```text
-r_i = (sum(scores_j for j != i) / 3 - scores_i) / 18
+r_i = -scores_i
 ```
 
-The divisor is the configured total point value (`13 + queen_of_spades_penalty`),
-so it changes consistently for rule overrides. This ordinary-deal reward is
-zero-sum and preserves lower-is-better score ordering. A moon shot instead uses
-a dedicated terminal signal: the shooter receives `0`, while each opponent
-receives `-1`.
+The reward preserves the game's effective penalty points without normalization;
+only the sign changes so larger is better. A moon shot gives the shooter `0`
+and each opponent the negative configured total point value.
 
 ## Configuration boundary
 
-`heart.make(**overrides)` and `heart.DealEnv(SingleDealRules(**overrides))`
-permit immutable rule-field overrides for controlled experiments. An overridden
-environment is not a canonical result and must report its full configuration.
-New published semantics should receive a new versioned environment ID rather
-than silently changing this contract.
+`classic-v0` is fixed to the standard rules above. For controlled single-deal
+experiments only, `heart.DealEnv(SingleDealRules(**overrides))` permits immutable
+deal-rule overrides. An overridden deal is not a canonical result and must
+report its full configuration. New published semantics should receive a new
+versioned environment ID rather than silently changing this contract.
 
 `queen_of_spades_penalty` must be a non-boolean integer from 0 through 32754.
 The upper bound ensures that 13 heart points plus Q♠ remain representable by the

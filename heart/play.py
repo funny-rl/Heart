@@ -21,6 +21,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from numbers import Integral
 from typing import Protocol
 
 import jax
@@ -49,6 +50,8 @@ from heart.render import _visible_trick
 
 RULE_TIERS = ("easy", "medium", "hard")
 PLUGIN = re.compile(r"^(?P<module>[\w.]+):(?P<attr>\w+)(?:\((?P<argument>.*)\))?$")
+MAX_REQUEST_BYTES = 16 * 1024
+MAX_SEED = 2**32 - 1
 
 # Interactive play takes one action at a time, so the eager dispatch cost that
 # vanishes inside a batched scan would otherwise dominate a person's turn.
@@ -132,6 +135,10 @@ def hand_cards(state: ClassicState, player: int) -> list[int]:
 def pass_action_for(slots: list[int]) -> int:
     """Map three hand slots to their `PASS_COMBINATIONS` row."""
 
+    if not isinstance(slots, (list, tuple)) or any(
+        isinstance(slot, bool) or not isinstance(slot, Integral) for slot in slots
+    ):
+        raise TypeError("pass slots must be integers")
     wanted = sorted(int(slot) for slot in slots)
     if len(set(wanted)) != 3:
         raise ValueError("passing takes exactly three distinct hand slots")
@@ -154,6 +161,11 @@ class HumanGame:
     log: list[str] = field(default_factory=list, init=False)
 
     def __post_init__(self) -> None:
+        if isinstance(self.human_seat, bool) or not isinstance(
+            self.human_seat, Integral
+        ):
+            raise TypeError("human seat must be an integer")
+        self.human_seat = int(self.human_seat)
         if not 0 <= self.human_seat < NUM_PLAYERS:
             raise ValueError(f"human seat must be 0..{NUM_PLAYERS - 1}")
         missing = [
@@ -166,6 +178,11 @@ class HumanGame:
         self.reset(self.seed)
 
     def reset(self, seed: int) -> None:
+        if isinstance(seed, bool) or not isinstance(seed, Integral):
+            raise TypeError("seed must be an integer")
+        seed = int(seed)
+        if not 0 <= seed <= MAX_SEED:
+            raise ValueError(f"seed must be in [0, {MAX_SEED}]")
         self.seed = seed
         self.key = jax.random.key(seed)
         self.key, reset_key = jax.random.split(self.key)
@@ -192,8 +209,9 @@ class HumanGame:
         if not self.pending:
             return False
         seat = int(self.state.active_player)
-        self.key, action_key = jax.random.split(self.key)
-        self._apply(seat, int(self.seats[seat](self.state, seat, action_key)))
+        next_key, action_key = jax.random.split(self.key)
+        self._apply(seat, self.seats[seat](self.state, seat, action_key))
+        self.key = next_key
         return True
 
     def advance(self) -> None:
@@ -536,18 +554,28 @@ def make_handler(game: HumanGame, lock: threading.Lock):
                 self._send(b"not found", "text/plain; charset=utf-8", 404)
 
         def do_POST(self) -> None:
-            length = int(self.headers.get("content-length") or 0)
             try:
+                length = int(self.headers.get("content-length") or 0)
+                if not 0 <= length <= MAX_REQUEST_BYTES:
+                    raise ValueError(
+                        f"content-length must be in [0, {MAX_REQUEST_BYTES}]"
+                    )
                 body = json.loads(self.rfile.read(length) or b"{}")
-            except json.JSONDecodeError:
+                if not isinstance(body, dict):
+                    raise TypeError("request body must be a JSON object")
+            except (json.JSONDecodeError, TypeError, ValueError):
+                self.close_connection = True
                 self._send(b"malformed json", "text/plain; charset=utf-8", 400)
                 return
             with lock:
                 try:
                     if self.path == "/new":
-                        game.reset(game.seed + 1)
+                        game.reset((game.seed + 1) & MAX_SEED)
                     elif self.path == "/advance":
-                        steps = int(body.get("steps", 1))
+                        steps = body.get("steps", 1)
+                        if isinstance(steps, bool) or not isinstance(steps, Integral):
+                            raise TypeError("steps must be an integer")
+                        steps = int(steps)
                         if not 1 <= steps <= 64:
                             raise ValueError("steps must be 1..64")
                         frames = []
@@ -566,7 +594,7 @@ def make_handler(game: HumanGame, lock: threading.Lock):
                         if "slots" in body:
                             game.play_human(pass_action_for(body["slots"]))
                         else:
-                            game.play_human(int(body["card"]))
+                            game.play_human(body["card"])
                     else:
                         self._send(b"not found", "text/plain; charset=utf-8", 404)
                         return
@@ -582,10 +610,16 @@ def make_handler(game: HumanGame, lock: threading.Lock):
     return Handler
 
 
-def warm_up(seats: dict[int, SeatPolicy], *, seed: int, actions: int = 24) -> None:
+def warm_up(
+    seats: dict[int, SeatPolicy],
+    *,
+    human_seat: int = 0,
+    seed: int,
+    actions: int = 24,
+) -> None:
     """Compile the transition and every seat policy before anyone is waiting."""
 
-    scratch = HumanGame(seats=seats, human_seat=0, seed=seed)
+    scratch = HumanGame(seats=seats, human_seat=human_seat, seed=seed)
     for _ in range(actions):
         if scratch.finished:
             break
@@ -604,7 +638,10 @@ def serve(game: HumanGame, host: str = "127.0.0.1", port: int = 8000):
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="python -m heart",
+        description=__doc__.splitlines()[0],
+    )
     parser.add_argument(
         "--seat",
         action="append",
@@ -626,7 +663,7 @@ def main(argv: list[str] | None = None) -> None:
     if len(specs) != len(others):
         raise SystemExit(f"--seat expects 1 or {len(others)} values, got {len(specs)}")
     seats = {seat: load_seat_policy(spec) for seat, spec in zip(others, specs)}
-    warm_up(seats, seed=arguments.seed + 1)
+    warm_up(seats, human_seat=arguments.human_seat, seed=arguments.seed)
     game = HumanGame(
         seats=seats,
         human_seat=arguments.human_seat,

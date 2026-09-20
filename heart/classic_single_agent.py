@@ -19,12 +19,14 @@ from heart.agents import (
 )
 from heart.cards import NUM_CARDS, NUM_PLAYERS
 from heart.classic import (
+    NUM_PASS_ACTIONS,
     PASS,
     PLAY,
     ClassicEnv,
     ClassicInfo,
     ClassicObservation,
     ClassicState,
+    _empty_classic_info,
     make_classic,
 )
 
@@ -272,7 +274,7 @@ class ClassicSingleAgentEnv:
             initial,
             opponent_key,
             jnp.zeros((NUM_PLAYERS,), dtype=jnp.float32),
-            self.core.step(match, -1)[4],
+            _empty_classic_info(match, invalid=True),
             empty_actions,
             empty_players,
             empty_phases,
@@ -308,11 +310,14 @@ class ClassicSingleAgentEnv:
             )
             and not jnp.issubdtype(raw_action.dtype, jnp.bool_)
         )
-        action = (
-            raw_action.astype(jnp.int32)
-            if is_integer
-            else jnp.asarray(0, dtype=jnp.int32)
-        )
+        if is_integer:
+            pass_in_bounds = (raw_action >= 0) & (raw_action < NUM_PASS_ACTIONS)
+            play_in_bounds = (raw_action >= 0) & (raw_action < 13)
+            action = raw_action.astype(jnp.int32)
+        else:
+            pass_in_bounds = jnp.asarray(False)
+            play_in_bounds = jnp.asarray(False)
+            action = jnp.asarray(0, dtype=jnp.int32)
         observation = self._observation(
             state.match,
             state.pass_hand_cards,
@@ -320,14 +325,8 @@ class ClassicSingleAgentEnv:
         )
         safe_pass = jnp.clip(action, 0, observation.pass_action_mask.size - 1)
         safe_play = jnp.clip(action, 0, 12)
-        valid_pass = (
-            (action >= 0)
-            & (action < observation.pass_action_mask.size)
-            & observation.pass_action_mask[safe_pass]
-        )
-        valid_play = (
-            (action >= 0) & (action < 13) & observation.play_action_mask[safe_play]
-        )
+        valid_pass = pass_in_bounds & observation.pass_action_mask[safe_pass]
+        valid_play = play_in_bounds & observation.play_action_mask[safe_play]
         valid = jnp.asarray(is_integer) & jnp.where(
             state.match.phase == PASS,
             valid_pass,
@@ -423,7 +422,7 @@ class ClassicSingleAgentEnv:
             )
 
         def reject(_: None):
-            info = self.core.step(state.match, -1)[4]
+            info = _empty_classic_info(state.match, invalid=True)
             empty_actions = jnp.full((MAX_DECISION_EVENTS,), -1, dtype=jnp.int16)
             return (
                 state,

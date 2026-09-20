@@ -24,11 +24,12 @@ def test_the_match_environment_is_the_only_published_mode():
 
 
 def play_to_end(env, key):
+    step = jax.jit(env.step)
     state, observation = env.reset(key)
     rewards = jnp.zeros((4,), dtype=jnp.float32)
     for step_index in range(52):
         action = choose_first_legal(observation)
-        state, observation, rewards, terminated, info = env.step(state, action)
+        state, observation, rewards, terminated, info = step(state, action)
         assert not bool(info.invalid_action)
         if step_index < 51:
             np.testing.assert_array_equal(np.asarray(rewards), np.zeros(4))
@@ -58,10 +59,7 @@ def test_full_deal_has_fixed_horizon_and_terminal_reward_contract():
     assert int(state.trick_index) == 13
     assert int(state.hands.sum()) == 0
     assert int(state.penalties.sum()) == 26
-    if int(state.moon_shooter) < 0:
-        assert np.isclose(float(rewards.sum()), 0.0, rtol=0.0, atol=1e-6)
-    else:
-        assert np.isclose(float(rewards.sum()), -3.0, rtol=0.0, atol=1e-6)
+    np.testing.assert_array_equal(np.asarray(rewards), -np.asarray(state.scores))
     assert not bool(observation.action_mask.any())
     assert np.all(np.asarray(state.trick_history) >= 0)
 
@@ -131,6 +129,7 @@ def test_first_trick_allows_points_when_only_points_remain():
 
 def test_hearts_cannot_lead_before_breaking_when_alternative_exists():
     env = heart.DealEnv()
+    step = jax.jit(env.step)
     state, observation = env.reset(jax.random.key(29))
     for _ in range(52):
         if int(state.trick_position) == 0 and not bool(state.hearts_broken):
@@ -138,7 +137,7 @@ def test_hearts_cannot_lead_before_breaking_when_alternative_exists():
             if np.asarray(hand & ~HEART_MASK).any():
                 assert not np.asarray(observation.action_mask & HEART_MASK).any()
         action = choose_first_legal(observation)
-        state, observation, _, terminated, _ = env.step(state, action)
+        state, observation, _, terminated, _ = step(state, action)
         if bool(terminated):
             break
 
@@ -182,27 +181,28 @@ def test_shooting_the_moon_is_a_solo_win():
     np.testing.assert_array_equal(
         np.asarray(winners), np.asarray([True, False, False, False])
     )
-    np.testing.assert_allclose(np.asarray(rewards), np.asarray([0.0, -1.0, -1.0, -1.0]))
+    np.testing.assert_array_equal(
+        np.asarray(rewards), np.asarray([0.0, -26.0, -26.0, -26.0])
+    )
 
 
-def test_ordinary_reward_is_normalized_by_configured_total_points():
+def test_ordinary_reward_is_the_negative_effective_score():
     rules = SingleDealRules(queen_of_spades_penalty=13)
     scores, shooter, _, rewards = settle_deal(
         jnp.asarray([0, 5, 8, 13], dtype=jnp.int16), rules
     )
     assert int(shooter) == -1
     np.testing.assert_array_equal(np.asarray(scores), [0, 5, 8, 13])
-    expected = np.asarray([26 / 3, 2, -2, -26 / 3], dtype=np.float32) / 26
-    np.testing.assert_allclose(np.asarray(rewards), expected, rtol=1e-6)
+    np.testing.assert_array_equal(np.asarray(rewards), [0.0, -5.0, -8.0, -13.0])
 
 
-def test_custom_queen_penalty_normalizes_moon_opponents_to_minus_one():
+def test_custom_queen_penalty_keeps_raw_moon_scores():
     rules = SingleDealRules(queen_of_spades_penalty=9)
     _, shooter, _, rewards = settle_deal(
         jnp.asarray([0, 22, 0, 0], dtype=jnp.int16), rules
     )
     assert int(shooter) == 1
-    np.testing.assert_array_equal(np.asarray(rewards), [-1.0, 0.0, -1.0, -1.0])
+    np.testing.assert_array_equal(np.asarray(rewards), [-22.0, 0.0, -22.0, -22.0])
 
 
 @pytest.mark.parametrize("value", [True, False, 1.5, "5"])
@@ -224,6 +224,20 @@ def test_queen_penalty_rejects_values_that_overflow_score_storage():
     np.testing.assert_array_equal(np.asarray(winners), [True, False, False, False])
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "forbid_first_trick_points",
+        "require_hearts_broken",
+        "shooting_the_moon",
+    ],
+)
+@pytest.mark.parametrize("value", [0, 1, None, "yes", np.bool_(True)])
+def test_rule_flags_require_python_booleans(name, value):
+    with pytest.raises(TypeError, match=f"{name} must be a boolean"):
+        SingleDealRules(**{name: value})
+
+
 @pytest.mark.parametrize("player", [-1, 4, 99])
 def test_observe_rejects_invalid_concrete_player(player):
     env = heart.DealEnv()
@@ -239,6 +253,19 @@ def test_jitted_observe_fails_closed_for_invalid_traced_player(player):
     observation = jax.jit(env.observe)(state, jnp.asarray(player))
     assert not bool(observation.hand.any())
     assert not bool(observation.action_mask.any())
+
+
+def test_jitted_observe_rejects_large_64_bit_player_before_narrowing():
+    with jax.experimental.enable_x64():
+        env = heart.DealEnv()
+        state, _ = env.reset(jax.random.key(45))
+        observation = jax.jit(env.observe)(
+            state,
+            jnp.asarray(2**32, dtype=jnp.int64),
+        )
+
+        assert not bool(observation.hand.any())
+        assert not bool(observation.action_mask.any())
 
 
 @pytest.mark.parametrize("player", [False, True, 0.0, 1.9])

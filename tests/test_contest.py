@@ -18,6 +18,7 @@ from heart.contest import (
     observation_signature,
     sample_observation,
 )
+from submissions import validate
 
 export = pytest.importorskip("jax.export")
 
@@ -165,6 +166,19 @@ def test_a_host_callback_cannot_be_exported_at_all():
     assert not isinstance(refusal.value, AssertionError)
 
 
+def test_custom_call_scanner_understands_current_and_legacy_mlir():
+    module = """
+      stablehlo.custom_call @shape_assertion(%0) {has_side_effect = true}
+      stablehlo.custom_call @"unsafe.target"(%1)
+      custom_call @legacy {call_target_name = "legacy_target"}
+    """
+    assert contest._custom_call_targets(module) == {
+        "shape_assertion",
+        "unsafe.target",
+        "legacy_target",
+    }
+
+
 def test_the_baseline_entry_satisfies_its_own_contract():
     entry = load_submission(contest.baseline_blob(), "baseline")
     assert entry.flops_per_decision < contest.MAX_FLOPS_PER_DECISION
@@ -197,9 +211,178 @@ def test_a_league_ranks_every_entry_on_the_scores_it_deals():
     assert abs(rating - contest.START_RATING) < 1e-6
 
 
+def test_league_refuses_logits_that_become_nonfinite_after_the_probe():
+    def policy(observation):
+        batch = observation.play_hand_cards.shape[0]
+        fail = observation.match.game.trick_index > 0
+        passes = jnp.zeros((batch, NUM_PASS_ACTIONS), dtype=jnp.float32)
+        plays = jnp.where(
+            fail[:, None],
+            jnp.full((batch, HAND_SIZE), jnp.nan),
+            jnp.zeros((batch, HAND_SIZE), dtype=jnp.float32),
+        )
+        return passes, plays
+
+    bad = load_submission(export_policy(policy), "later-nan")
+    entries = [bad] + [
+        load_submission(contest.baseline_blob(), f"baseline-{index}")
+        for index in range(3)
+    ]
+    with pytest.raises(RuntimeError, match="non-finite logits"):
+        contest.run_league(entries, lineups=1, rounds=1, seed=8, bootstrap=0, chunk=1)
+
+
 def test_a_league_needs_a_full_table():
     with pytest.raises(ValueError, match="table"):
-        contest.run_league([_entry("solo", 9)], lineups=8, rounds=1)
+        contest.run_league([None], lineups=8, rounds=1)
+
+
+def test_league_schedule_rotates_shared_deals_before_resampling():
+    schedule = contest._league_schedule(7, lineups=5, rounds=8, seed=17)
+
+    assert len(schedule) == 8
+    for cycle_start in (0, 4):
+        base_seating, base_keys = schedule[cycle_start]
+        for offset in range(4):
+            seating, keys = schedule[cycle_start + offset]
+            np.testing.assert_array_equal(
+                seating, np.roll(base_seating, offset, axis=1)
+            )
+            np.testing.assert_array_equal(
+                jax.random.key_data(keys), jax.random.key_data(base_keys)
+            )
+    assert not np.array_equal(
+        jax.random.key_data(schedule[0][1]), jax.random.key_data(schedule[4][1])
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "error"),
+    [
+        ("lineups", 0, ValueError),
+        ("rounds", 0, ValueError),
+        ("steps", 0, ValueError),
+        ("chunk", 0, ValueError),
+        ("bootstrap", -1, ValueError),
+        ("seed", -1, ValueError),
+        ("seed", 2**32, ValueError),
+        ("lineups", True, TypeError),
+        ("rounds", 1.5, TypeError),
+    ],
+)
+def test_league_parameters_are_validated_before_rollout(name, value, error):
+    with pytest.raises(error, match=name):
+        contest.run_league([None] * 4, **{name: value})
+
+
+def test_zero_bootstrap_is_supported():
+    entries = [
+        load_submission(contest.baseline_blob(), f"baseline-{index}")
+        for index in range(4)
+    ]
+    table = contest.run_league(
+        entries,
+        lineups=1,
+        rounds=1,
+        seed=9,
+        bootstrap=0,
+        chunk=1,
+    )
+    assert all(standing.elo_stderr == 0.0 for standing in table)
+
+
+def test_submission_validator_ignores_python_cache(tmp_path, monkeypatch):
+    (tmp_path / "__pycache__").mkdir()
+    monkeypatch.setattr(validate, "ROOT", tmp_path)
+    assert validate.main([]) == 0
+
+
+@pytest.mark.parametrize(
+    ("manifest", "message"),
+    [
+        ('name = 3\ndescription = "valid"\n', "name must be a string"),
+        ('name = "valid"\ndescription = 3\n', "description must be a string"),
+        ('name = "valid"\ndescription = "first\\nsecond"\n', "fit on one line"),
+    ],
+)
+def test_submission_validator_rejects_malformed_manifest(
+    tmp_path, monkeypatch, manifest, message
+):
+    team = tmp_path / "valid-team"
+    team.mkdir()
+    (team / "entry.bin").write_bytes(b"graph")
+    (team / "entry.toml").write_text(manifest)
+    monkeypatch.setattr(validate, "ROOT", tmp_path)
+    assert validate.main([]) == 1
+    assert message in "\n".join(validate.check(team))
+
+
+def test_submission_validator_checks_size_before_loading(tmp_path, monkeypatch):
+    team = tmp_path / "valid-team"
+    team.mkdir()
+    (team / "entry.bin").write_bytes(b"large")
+    (team / "entry.toml").write_text('description = "valid"\n')
+    monkeypatch.setattr(validate, "MAX_SUBMISSION_BYTES", 4)
+    monkeypatch.setattr(
+        validate,
+        "load_submission",
+        lambda *_: (_ for _ in ()).throw(AssertionError("must not load")),
+    )
+    assert "entry.bin is over 4 bytes" in "\n".join(validate.check(team))
+
+
+def test_submission_validator_does_not_reread_oversized_metadata(tmp_path, monkeypatch):
+    team = tmp_path / "valid-team"
+    team.mkdir()
+    (team / "entry.bin").write_bytes(b"graph")
+    meta = team / "entry.toml"
+    meta.write_text('name = "valid"\ndescription = "valid"\n')
+    monkeypatch.setattr(validate, "MAX_METADATA_BYTES", 4)
+
+    assert "entry.toml is over 4 bytes" in "\n".join(validate.check(team))
+    assert validate.clashing_names([team]) == []
+
+
+def test_submission_validator_rejects_non_utf8_metadata(tmp_path):
+    team = tmp_path / "valid-team"
+    team.mkdir()
+    (team / "entry.bin").write_bytes(b"graph")
+    (team / "entry.toml").write_bytes(b"\xff")
+
+    assert "entry.toml is not readable" in "\n".join(validate.check(team))
+    assert validate.clashing_names([team]) == []
+
+
+@pytest.mark.parametrize("filename", ["entry.bin", "entry.toml"])
+def test_submission_validator_requires_regular_entry_files(tmp_path, filename):
+    team = tmp_path / "valid-team"
+    team.mkdir()
+    (team / "entry.bin").write_bytes(b"graph")
+    (team / "entry.toml").write_text('description = "valid"\n')
+    (team / filename).unlink()
+    (team / filename).mkdir()
+
+    assert "must be regular files" in "\n".join(validate.check(team))
+
+
+def test_submission_validator_rejects_symbolic_entry_files(tmp_path):
+    team = tmp_path / "valid-team"
+    team.mkdir()
+    target = tmp_path / "graph"
+    target.write_bytes(b"graph")
+    (team / "entry.bin").symlink_to(target)
+    (team / "entry.toml").write_text('description = "valid"\n')
+    assert "must not be symbolic links" in "\n".join(validate.check(team))
+
+
+@pytest.mark.parametrize("name", ["a", "a-b", "abc123", "a" * 39])
+def test_submission_team_name_accepts_github_handle_shape(name):
+    assert validate.TEAM.fullmatch(name)
+
+
+@pytest.mark.parametrize("name", ["", "A", "-a", "a-", "a--b", "a" * 40])
+def test_submission_team_name_rejects_non_github_handle_shape(name):
+    assert not validate.TEAM.fullmatch(name)
 
 
 def test_ratings_follow_the_pairwise_record():
@@ -216,16 +399,17 @@ def test_hand_slots_hold_still_while_a_deal_is_played():
     env = heart.make_classic_single_agent(
         controlled_player=0, pass_opponents="medium", play_opponents="medium"
     )
+    step = jax.jit(env.step)
     state, observation = env.reset(jax.random.key(11))
     while int(observation.match.phase) == heart.PASS:
         legal = np.flatnonzero(np.asarray(observation.pass_action_mask))
-        state, observation, *_ = env.step(state, int(legal[0]))
+        state, observation, *_ = step(state, jnp.int32(legal[0]))
     layouts = [np.asarray(observation.play_hand_cards).copy()]
     for _ in range(4):
         legal = np.flatnonzero(np.asarray(observation.play_action_mask))
         if legal.size == 0:
             break
-        state, observation, *_ = env.step(state, int(legal[0]))
+        state, observation, *_ = step(state, jnp.int32(legal[0]))
         layouts.append(np.asarray(observation.play_hand_cards).copy())
     for earlier, later in itertools.pairwise(layouts):
         np.testing.assert_array_equal(earlier, later)
@@ -246,6 +430,7 @@ def test_the_league_shows_a_seat_what_the_adapter_shows_a_learner():
     env = heart.make_single_agent(
         "classic-v0", controlled_player=seat, opponents="easy"
     )
+    step = jax.jit(env.step)
     state, observation = env.reset(jax.random.key(7))
     # The league's carry is driven here, so a change to its rule reaches
     # this assertion rather than being restated by it.
@@ -265,7 +450,7 @@ def test_the_league_shows_a_seat_what_the_adapter_shows_a_learner():
         passing = int(state.match.phase) == heart.PASS
         mask = observation.pass_action_mask if passing else observation.play_action_mask
         before = state.match
-        state, observation, _, done, info = env.step(state, jnp.int32(jnp.argmax(mask)))
+        state, observation, _, done, info = step(state, jnp.int32(jnp.argmax(mask)))
         assert not bool(info.core.invalid_action)
 
         following = jax.tree.map(lambda leaf: leaf[None], state.match)
