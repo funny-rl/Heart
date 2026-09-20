@@ -64,6 +64,7 @@ from heart.contest import (
     observation_signature,
     run_league,
     sample_observation,
+    save_submission,
 )
 from heart.env import AVAILABLE_MODES, DealEnv, make
 from heart.gif_render import render_gif_frame, save_gif
@@ -158,6 +159,7 @@ __all__ = [
     "save_gif",
     "save_html",
     "save_replay_html",
+    "save_submission",
     "serve",
 ]
 

@@ -149,8 +149,7 @@ batch, so it does not depend on the machine that measures it.
 
 ```python
 import jax.numpy as jnp
-from pathlib import Path
-from heart.contest import export_policy
+from heart import save_submission
 
 
 def policy(observation):  # any architecture you like
@@ -159,16 +158,27 @@ def policy(observation):  # any architecture you like
     return hidden @ pass_weights, hidden @ play_weights
 
 
-Path("entry.bin").write_bytes(export_policy(policy))
+entry = save_submission(
+    policy,
+    "submissions/your-github-handle",
+    name="clever-passer",
+    description="one line: what the policy does",
+)
+print(entry.size_bytes, entry.flops_per_decision)
 ```
 
-`export_policy` exports for the platforms this machine can run, which is what
-the host checks against. Serialising needs `flatbuffers`:
-`python -m pip install -e '.[contest]'` from a repository checkout.
+`save_submission` exports and validates the inference graph, then writes
+`entry.bin`, `entry.toml`, and `validation.json`. Call it on the host after the
+last checkpoint; it does not belong inside a compiled training update. The
+lower-level `export_policy(policy)` returns only the graph bytes when a custom
+training pipeline manages its own files. Both export for the platforms this
+machine can run. Serialising needs `flatbuffers`: `python -m pip install -e
+'.[contest]'` from a repository checkout.
 
 ### Check it before you send it
 
 ```python
+from pathlib import Path
 from heart.contest import load_submission
 
 entry = load_submission(Path("entry.bin").read_bytes(), "my-entry")

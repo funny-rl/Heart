@@ -222,6 +222,13 @@ Use the core `heart.make()` environment for four-policy MARL or self-play; it
 keeps global 52-card actions so every policy and replay shares one unambiguous
 card encoding.
 
+After the final checkpoint, keep export on the host side rather than inside the
+compiled update. `heart.save_submission(policy, directory, name=...,
+description=...)` writes and validates a ready-to-submit `entry.bin`,
+`entry.toml`, and `validation.json`. See the
+[leaderboard guide](https://github.com/funny-rl/Heart/blob/main/docs/leaderboard.md#build-an-entry)
+for the policy signature and complete example.
+
 ## Batched rollouts
 
 HEART does not introduce a separate vector-environment abstraction. Standard

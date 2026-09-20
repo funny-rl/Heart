@@ -21,9 +21,11 @@ exactly what the packaged policies see, and a packaged policy is a valid entry.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, replace
 from numbers import Integral
+from pathlib import Path
 
 import jax
 import jax.numpy as jnp
@@ -137,6 +139,59 @@ def export_policy(policy, *, platforms: tuple[str, ...] | None = None) -> bytes:
     return export.export(jax.jit(policy), platforms=platforms or host_platforms())(
         observation_signature()
     ).serialize()
+
+
+def save_submission(
+    policy,
+    directory: str | Path,
+    *,
+    name: str,
+    description: str,
+    platforms: tuple[str, ...] | None = None,
+) -> Submission:
+    """Export, validate, and write a ready-to-submit policy directory."""
+
+    values = {}
+    for field, value, limit in (
+        ("name", name, 64),
+        ("description", description, 200),
+    ):
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{field} must be a non-empty string")
+        if "\n" in value or "\r" in value:
+            raise ValueError(f"{field} must fit on one line")
+        if len(value.strip()) > limit:
+            raise ValueError(f"{field} must be at most {limit} characters")
+        values[field] = value.strip()
+
+    blob = export_policy(policy, platforms=platforms)
+    entry = load_submission(blob, values["name"])
+    destination = Path(directory)
+    destination.mkdir(parents=True, exist_ok=True)
+    files = {
+        "entry.bin": blob,
+        "entry.toml": (
+            f"name = {json.dumps(values['name'], ensure_ascii=False)}\n"
+            f"description = {json.dumps(values['description'], ensure_ascii=False)}\n"
+        ).encode(),
+        "validation.json": (
+            json.dumps(
+                {
+                    "name": entry.name,
+                    "size_bytes": entry.size_bytes,
+                    "flops_per_decision": entry.flops_per_decision,
+                },
+                indent=2,
+            )
+            + "\n"
+        ).encode(),
+    }
+    for filename, contents in files.items():
+        path = destination / filename
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary.write_bytes(contents)
+        temporary.replace(path)
+    return entry
 
 
 @dataclass(frozen=True)

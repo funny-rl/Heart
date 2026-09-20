@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import json
 
 import jax
 import jax.numpy as jnp
@@ -68,6 +69,28 @@ def test_a_well_formed_entry_is_accepted():
     passes, plays = entry.call(batch)
     assert passes.shape == (3, NUM_PASS_ACTIONS)
     assert plays.shape == (3, HAND_SIZE)
+
+
+def test_save_submission_writes_a_valid_ready_to_submit_directory(
+    tmp_path, monkeypatch
+):
+    directory = tmp_path / "trained-policy"
+    entry = heart.save_submission(
+        _reference,
+        directory,
+        name="trained policy",
+        description="exported after training",
+    )
+
+    assert entry.size_bytes == (directory / "entry.bin").stat().st_size
+    assert (directory / "entry.toml").read_text() == (
+        'name = "trained policy"\ndescription = "exported after training"\n'
+    )
+    validation = json.loads((directory / "validation.json").read_text())
+    assert validation["size_bytes"] == entry.size_bytes
+    assert validation["flops_per_decision"] == entry.flops_per_decision
+    monkeypatch.setattr(validate, "ROOT", tmp_path)
+    assert validate.main([]) == 0
 
 
 @pytest.mark.parametrize(
