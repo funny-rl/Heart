@@ -15,23 +15,24 @@
 <!-- standings:start -->
 <div align="center">
 
-### 🥇 &nbsp; RL (TA) &nbsp; · &nbsp; **4.76** penalty points per deal
+### 🥇 &nbsp; calmdown-zye &nbsp; · &nbsp; **4.77** penalty points per deal
 
-<sub>8,192 complete matches to 100 points · 90,162 deals · rotating seats · shared deals</sub>
+<sub>8,192 complete matches to 100 points · 87,521 deals · rotating seats · shared deals</sub>
 
 </div>
 
 | | GitHub ID / reference | Penalty / deal | vs field | Won | Last | Elo | Matches |
 | :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 🥇 | **RL (TA)** | **4.756** &nbsp;<sub>± 0.019</sub> | −1.92 | 57.1 % | 4.1 % | **1658** &nbsp;<sub>± 1</sub> | 8,192 |
-| 🥈 | **rule-hard** | **7.094** &nbsp;<sub>± 0.022</sub> | +0.42 | 15.7 % | 28.0 % | **1461** &nbsp;<sub>± 1</sub> | 8,192 |
-| 🥉 | rule-medium | 7.344 &nbsp;<sub>± 0.023</sub> | +0.66 | 14.6 % | 33.0 % | 1445 &nbsp;<sub>± 2</sub> | 8,192 |
-| 4 | rule-easy | 7.522 &nbsp;<sub>± 0.023</sub> | +0.84 | 14.5 % | 35.4 % | 1436 &nbsp;<sub>± 1</sub> | 8,192 |
+| 🥇 | **calmdown-zye** | **4.769** &nbsp;<sub>± 0.024</sub> | −1.95 | 52.6 % | 3.9 % | **1662** &nbsp;<sub>± 2</sub> | 6,488 |
+| 🥈 | **RL (TA)** | **5.268** &nbsp;<sub>± 0.027</sub> | −1.45 | 42.1 % | 7.0 % | **1615** &nbsp;<sub>± 2</sub> | 6,464 |
+| 🥉 | rule-hard | 7.564 &nbsp;<sub>± 0.029</sub> | +0.85 | 12.4 % | 33.7 % | 1425 &nbsp;<sub>± 2</sub> | 6,620 |
+| 4 | rule-easy | 7.958 &nbsp;<sub>± 0.030</sub> | +1.24 | 10.9 % | 40.0 % | 1401 &nbsp;<sub>± 3</sub> | 6,672 |
+| 5 | rule-medium | 8.030 &nbsp;<sub>± 0.030</sub> | +1.31 | 10.4 % | 40.3 % | 1396 &nbsp;<sub>± 2</sub> | 6,524 |
 
 <div align="center">
 <sub>
 
-Updated 2026-09-21 · field average **6.68** points per deal
+Updated 2026-10-30 · field average **6.72** points per deal
 
 </sub>
 </div>
