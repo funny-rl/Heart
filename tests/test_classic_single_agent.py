@@ -9,6 +9,11 @@ import pytest
 
 import heart
 
+try:
+    from jax import enable_x64
+except ImportError:  # JAX 0.4.x compatibility.
+    from jax.experimental import enable_x64
+
 
 def _as_numpy(array):
     if jax.dtypes.issubdtype(array.dtype, jax.dtypes.prng_key):
@@ -176,7 +181,7 @@ def test_invalid_action_has_empty_trace_and_terminal_discount_is_zero():
 
 @pytest.mark.parametrize("value", [2**32, 2**32 + 285])
 def test_single_agent_rejects_large_64_bit_actions_before_narrowing(value):
-    with jax.experimental.enable_x64():
+    with enable_x64():
         env = heart.make_single_agent(
             "classic-v0",
             controlled_player=0,

@@ -22,6 +22,11 @@ from heart.classic import (
     _new_deal_state,
 )
 
+try:
+    from jax import enable_x64
+except ImportError:  # JAX 0.4.x compatibility.
+    from jax.experimental import enable_x64
+
 
 def _assert_trees_equal(actual, expected):
     for actual_leaf, expected_leaf in zip(
@@ -215,7 +220,7 @@ def test_jitted_invalid_observer_fails_closed(player):
 
 
 def test_jitted_classic_observer_rejects_large_player_before_narrowing():
-    with jax.experimental.enable_x64():
+    with enable_x64():
         env = heart.make("classic-v0")
         state, _ = env.reset(jax.random.key(132))
         observation = jax.jit(env.observe)(
@@ -246,7 +251,7 @@ def test_classic_reset_and_phase_steps_are_jittable():
 
 @pytest.mark.parametrize("value", [2**32, 2**32 + NUM_PASS_ACTIONS])
 def test_classic_rejects_large_64_bit_actions_before_narrowing(value):
-    with jax.experimental.enable_x64():
+    with enable_x64():
         env = heart.make("classic-v0")
         state, _ = env.reset(jax.random.key(151))
         result = jax.jit(env.step)(state, jnp.asarray(value, dtype=jnp.int64))

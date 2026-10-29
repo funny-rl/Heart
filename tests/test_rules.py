@@ -10,6 +10,11 @@ from heart.cards import HEART_MASK, POINT_CARD_MASK, SUIT_MASKS, card_id
 from heart.config import SingleDealRules
 from heart.rules import settle_deal
 
+try:
+    from jax import enable_x64
+except ImportError:  # JAX 0.4.x compatibility.
+    from jax.experimental import enable_x64
+
 
 def choose_first_legal(observation):
     return jnp.argmax(observation.action_mask)
@@ -256,7 +261,7 @@ def test_jitted_observe_fails_closed_for_invalid_traced_player(player):
 
 
 def test_jitted_observe_rejects_large_64_bit_player_before_narrowing():
-    with jax.experimental.enable_x64():
+    with enable_x64():
         env = heart.DealEnv()
         state, _ = env.reset(jax.random.key(45))
         observation = jax.jit(env.observe)(
