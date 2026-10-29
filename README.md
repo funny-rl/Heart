@@ -170,6 +170,9 @@ an Elo beside it and an error on both.
 
 Entries arrive as a pull request adding one directory under
 [`submissions/`](https://github.com/funny-rl/Heart/tree/main/submissions), and CI checks the file before review.
+Policy files and PR descriptions are public. The leaderboard identifies each
+submitted policy by its GitHub handle and publishes evaluation results under
+that handle; `entry.toml` policy aliases do not change the displayed identity.
 
 **→ [Submission rules and standings](https://github.com/funny-rl/Heart/blob/main/docs/leaderboard.md)**
 

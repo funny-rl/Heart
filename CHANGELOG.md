@@ -3,6 +3,13 @@
 All notable user-facing changes to HEART are recorded here. Package versions
 follow Semantic Versioning, while environment IDs version game semantics.
 
+## Unreleased
+
+- Identify submitted policies by GitHub handle in submission validation and
+  leaderboard results, independently of optional policy aliases.
+- Clarify that submitted graphs and PR descriptions are public and that a
+  maintainer publishes the standings after evaluating merged entries.
+
 ## [0.1.0] - 2026-09-20
 
 ### Environment
