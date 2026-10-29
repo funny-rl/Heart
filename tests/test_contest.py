@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import json
+from types import SimpleNamespace
 
 import jax
 import jax.numpy as jnp
@@ -320,6 +321,30 @@ def test_submission_validator_ignores_python_cache(tmp_path, monkeypatch):
     assert validate.main([]) == 0
 
 
+def test_submission_validator_uses_github_handles_instead_of_policy_names(
+    tmp_path, monkeypatch, capsys
+):
+    loaded_names = []
+
+    def load(blob, name):
+        loaded_names.append(name)
+        return SimpleNamespace(size_bytes=len(blob), flops_per_decision=1)
+
+    for handle in ("alice", "bob"):
+        team = tmp_path / handle
+        team.mkdir()
+        (team / "entry.bin").write_bytes(b"graph")
+        (team / "entry.toml").write_text(
+            'name = "same-policy-alias"\ndescription = "example"\n'
+        )
+    monkeypatch.setattr(validate, "ROOT", tmp_path)
+    monkeypatch.setattr(validate, "load_submission", load)
+
+    assert validate.main([]) == 0
+    assert loaded_names == ["alice", "bob"]
+    assert "same-policy-alias" not in capsys.readouterr().out
+
+
 @pytest.mark.parametrize(
     ("manifest", "message"),
     [
@@ -363,7 +388,6 @@ def test_submission_validator_does_not_reread_oversized_metadata(tmp_path, monke
     monkeypatch.setattr(validate, "MAX_METADATA_BYTES", 4)
 
     assert "entry.toml is over 4 bytes" in "\n".join(validate.check(team))
-    assert validate.clashing_names([team]) == []
 
 
 def test_submission_validator_rejects_non_utf8_metadata(tmp_path):
@@ -373,7 +397,6 @@ def test_submission_validator_rejects_non_utf8_metadata(tmp_path):
     (team / "entry.toml").write_bytes(b"\xff")
 
     assert "entry.toml is not readable" in "\n".join(validate.check(team))
-    assert validate.clashing_names([team]) == []
 
 
 @pytest.mark.parametrize("filename", ["entry.bin", "entry.toml"])

@@ -21,7 +21,7 @@
 
 </div>
 
-| | Entry | Penalty / deal | vs field | Won | Last | Elo | Matches |
+| | GitHub ID / reference | Penalty / deal | vs field | Won | Last | Elo | Matches |
 | :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 🥇 | **RL (TA)** | **4.756** &nbsp;<sub>± 0.019</sub> | −1.92 | 57.1 % | 4.1 % | **1658** &nbsp;<sub>± 1</sub> | 8,192 |
 | 🥈 | **rule-hard** | **7.094** &nbsp;<sub>± 0.022</sub> | +0.42 | 15.7 % | 28.0 % | **1461** &nbsp;<sub>± 1</sub> | 8,192 |
@@ -220,12 +220,22 @@ submissions/
 ```
 
 ```toml
-name = "clever-passer"        # what the standings call it; optional, defaults to the directory
+name = "clever-passer"        # optional policy alias; not the leaderboard identity
 description = "one line: what the policy does"
 ```
 
 Both values are single-line strings. `name` is at most 64 characters,
 `description` is at most 200, and `entry.toml` is at most 16 KiB.
+
+**Public standings identify submissions by the directory's GitHub handle.**
+They publish the handle and evaluation results, without policy aliases, training
+descriptions, real names, or student numbers. Packaged and TA reference policies
+retain their explicitly marked reference labels.
+
+The repository, every branch, and every pull request are public. Submitted
+graphs, metadata, and PR descriptions can be downloaded or read by anyone;
+publishing only results in the standings does not make those submissions
+private. Provide any required course identity separately to the teaching staff.
 
 1. Fork the repository and create a branch.
 2. Add — or edit — `submissions/<your-handle>/`.
@@ -233,8 +243,8 @@ Both values are single-line strings. `name` is at most 64 characters,
 4. Open the pull request.
 
 CI validates the entry on the pull request, so a malformed file is refused
-before a human looks at it. After a merge the league is re-run and the standings
-above are updated.
+before a human looks at it. After a merge a maintainer runs the league and
+publishes the updated standings above; merging alone does not update the table.
 
 ### Submitting again replaces what you had
 
@@ -244,9 +254,8 @@ than a rule anyone has to enforce: your second submission writes to the same
 it as a modification, the league re-runs, and your row moves. There is no second
 row to retire.
 
-You may rename the entry whenever you like — `name` is only what the standings
-print — but two teams cannot show the same name, since a table nobody can read
-is worse than an awkward name.
+You may change the optional policy alias whenever you like. Different handles
+may use the same alias because the standings always print the GitHub handle.
 
 A team directory is your 1-to-39-character lowercase GitHub handle: letters,
 digits, and single internal hyphens.

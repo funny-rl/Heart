@@ -83,47 +83,21 @@ def check(directory: Path) -> list[str]:
     _, description_problem = _one_line(declared.get("description"), "description", 200)
     if description_problem:
         problems.append(f"{directory.name}: {description_problem}")
-    display, name_problem = _one_line(declared.get("name", directory.name), "name", 64)
+    _, name_problem = _one_line(declared.get("name", directory.name), "name", 64)
     if name_problem:
         problems.append(f"{directory.name}: {name_problem}")
     if problems:
         return problems
 
     try:
-        entry = load_submission(blob.read_bytes(), display)
+        entry = load_submission(blob.read_bytes(), directory.name)
     except SubmissionError as error:
         return problems + [f"{directory.name}: {error}"]
     print(
-        f"  {directory.name} ({display}): {entry.size_bytes:,} bytes, "
+        f"  {directory.name}: {entry.size_bytes:,} bytes, "
         f"{entry.flops_per_decision:,.0f} flops per decision"
     )
     return problems
-
-
-def clashing_names(directories: list[Path]) -> list[str]:
-    """Two teams showing the same name would be unreadable in the standings."""
-
-    shown: dict[str, list[str]] = {}
-    for directory in directories:
-        meta = directory / "entry.toml"
-        if (
-            not meta.is_file()
-            or meta.is_symlink()
-            or meta.stat().st_size > MAX_METADATA_BYTES
-        ):
-            continue
-        try:
-            declared = tomllib.loads(meta.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, tomllib.TOMLDecodeError):
-            continue
-        display = str(declared.get("name", directory.name)).strip().casefold()
-        if display:
-            shown.setdefault(display, []).append(directory.name)
-    return [
-        f"the name '{name}' is used by {', '.join(sorted(teams))}; pick distinct names"
-        for name, teams in sorted(shown.items())
-        if len(teams) > 1
-    ]
 
 
 def main(argv: list[str]) -> int:
@@ -145,7 +119,6 @@ def main(argv: list[str]) -> int:
 
     print(f"checking {len(directories)} entr{'y' if len(directories) == 1 else 'ies'}")
     problems = [problem for directory in directories for problem in check(directory)]
-    problems.extend(clashing_names(everything))
     for problem in problems:
         print(f"  refused - {problem}", file=sys.stderr)
     return 1 if problems else 0
