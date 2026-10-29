@@ -1,0 +1,2 @@
+name = "zye-ppo"
+description = "PPO vs rule-hard, slot-equivariant MLP with void features"
