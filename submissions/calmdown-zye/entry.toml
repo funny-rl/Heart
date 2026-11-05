@@ -1,2 +1,2 @@
 name = "zye-ppo"
-description = "PPO vs rule-hard, slot-equivariant MLP with void features"
+description = "MARL: self-play + snapshot league + rule bots (60%), PPO with CTDE critic"
