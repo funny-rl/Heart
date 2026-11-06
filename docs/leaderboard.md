@@ -15,24 +15,25 @@
 <!-- standings:start -->
 <div align="center">
 
-### 🥇 &nbsp; calmdown-zye &nbsp; · &nbsp; **4.77** penalty points per deal
+### 🥇 &nbsp; hyunwoo-jung &nbsp; · &nbsp; **4.62** penalty points per deal
 
-<sub>8,192 complete matches to 100 points · 87,521 deals · rotating seats · shared deals</sub>
+<sub>8,192 complete matches to 100 points · 83,034 deals · rotating seats · shared deals</sub>
 
 </div>
 
 | | GitHub ID / reference | Penalty / deal | vs field | Won | Last | Elo | Matches |
 | :--: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 🥇 | **calmdown-zye** | **4.769** &nbsp;<sub>± 0.024</sub> | −1.95 | 52.6 % | 3.9 % | **1662** &nbsp;<sub>± 2</sub> | 6,488 |
-| 🥈 | **RL (TA)** | **5.268** &nbsp;<sub>± 0.027</sub> | −1.45 | 42.1 % | 7.0 % | **1615** &nbsp;<sub>± 2</sub> | 6,464 |
-| 🥉 | rule-hard | 7.564 &nbsp;<sub>± 0.029</sub> | +0.85 | 12.4 % | 33.7 % | 1425 &nbsp;<sub>± 2</sub> | 6,620 |
-| 4 | rule-easy | 7.958 &nbsp;<sub>± 0.030</sub> | +1.24 | 10.9 % | 40.0 % | 1401 &nbsp;<sub>± 3</sub> | 6,672 |
-| 5 | rule-medium | 8.030 &nbsp;<sub>± 0.030</sub> | +1.31 | 10.4 % | 40.3 % | 1396 &nbsp;<sub>± 2</sub> | 6,524 |
+| 🥇 | **hyunwoo-jung** | **4.624** &nbsp;<sub>± 0.027</sub> | −2.48 | 60.2 % | 3.0 % | **1699** &nbsp;<sub>± 3</sub> | 5,520 |
+| 🥈 | **calmdown-zye** | **5.696** &nbsp;<sub>± 0.040</sub> | −1.41 | 38.9 % | 7.2 % | **1614** &nbsp;<sub>± 2</sub> | 5,516 |
+| 🥉 | RL (TA) | 6.321 &nbsp;<sub>± 0.041</sub> | −0.78 | 28.5 % | 12.5 % | 1557 &nbsp;<sub>± 3</sub> | 5,296 |
+| 4 | rule-hard | 8.445 &nbsp;<sub>± 0.042</sub> | +1.34 | 9.0 % | 39.2 % | 1389 &nbsp;<sub>± 2</sub> | 5,456 |
+| 5 | rule-easy | 8.735 &nbsp;<sub>± 0.043</sub> | +1.63 | 8.6 % | 43.5 % | 1376 &nbsp;<sub>± 3</sub> | 5,508 |
+| 6 | rule-medium | 8.806 &nbsp;<sub>± 0.042</sub> | +1.70 | 7.1 % | 45.4 % | 1364 &nbsp;<sub>± 2</sub> | 5,472 |
 
 <div align="center">
 <sub>
 
-Updated 2026-10-30 · field average **6.72** points per deal
+Updated 2026-11-06 · field average **7.10** points per deal
 
 </sub>
 </div>
